@@ -21,13 +21,6 @@ export function safeBigInt(value: string | number | bigint | null | undefined): 
     }
 }
 
-// Sum a list of integer strings without precision loss.
-export function sumMicro(values: Array<string | number | bigint | null | undefined>): bigint {
-    let total = 0n;
-    for (const v of values) total += safeBigInt(v);
-    return total;
-}
-
 // Compare two integer strings. Returns -1, 0, 1.
 export function compareMicro(a: string | number | bigint | null | undefined, b: string | number | bigint | null | undefined): number {
     const aa = safeBigInt(a);

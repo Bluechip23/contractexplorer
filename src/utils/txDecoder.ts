@@ -25,10 +25,6 @@ export function decodeMessageType(typeUrl: string): string {
     return MESSAGE_TYPE_MAP[typeUrl] || typeUrl.split('.').pop()?.replace('Msg', '') || typeUrl;
 }
 
-export function isIBCTransfer(typeUrl: string): boolean {
-    return typeUrl?.startsWith('/ibc.') || false;
-}
-
 export function formatDenom(denom: string): string {
     if (!denom) return '';
     if (denom.startsWith('u')) {

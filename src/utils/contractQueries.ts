@@ -930,15 +930,6 @@ async function mockQueryFactoryNotifyStatus(_poolAddress: string): Promise<Facto
 }
 
 
-
-export function getCreatorTokenAddress(assetInfos: [TokenType, TokenType]): string | null {
-    const creatorToken = assetInfos.find(
-        (asset): asset is { creator_token: { contract_addr: string } } =>
-            asset.creator_token !== undefined
-    );
-    return creatorToken?.creator_token.contract_addr ?? null;
-}
-
 export { formatMicroAmount, safeBigInt, microToNumber } from './bigintMath';
 
 export function abbreviateAddress(address: string, prefixLen: number = 12, suffixLen: number = 6): string {
@@ -1095,41 +1086,9 @@ export async function queryFactoryNotifyStatus(poolAddress: string): Promise<Fac
     return mockQueryFactoryNotifyStatus(poolAddress);
 }
 
-// ---- Previously-stubbed single reads (real on chain, null in demo mode) ----
-
-export async function queryPoolState(poolAddress: string): Promise<PoolStateResponse | null> {
-    if (await onChain()) return chain.chainQueryPoolState(poolAddress).catch(() => null);
-    return null;
-}
-
-export async function queryPoolInfo(poolAddress: string): Promise<PoolInfoResponse | null> {
-    if (await onChain()) return chain.chainQueryPoolInfo(poolAddress).catch(() => null);
-    return null;
-}
-
-export async function queryFeeState(poolAddress: string): Promise<PoolFeeStateResponse | null> {
-    if (await onChain()) return chain.chainQueryFeeState(poolAddress).catch(() => null);
-    return null;
-}
-
-export async function queryCommitStatus(poolAddress: string): Promise<CommitStatus | null> {
-    if (await onChain()) return chain.chainQueryCommitStatus(poolAddress).catch(() => null);
-    return null;
-}
-
 export async function queryTokenInfo(tokenAddress: string): Promise<CW20TokenInfo | null> {
     if (await onChain()) return chain.chainQueryTokenInfo(tokenAddress).catch(() => null);
     return null;
-}
-
-export async function queryFactoryConfig(_factoryAddr: string): Promise<FactoryConfig | null> {
-    if (await onChain()) return chain.chainQueryFactoryConfig();
-    return null;
-}
-
-export async function discoverPoolContracts(_codeId: number): Promise<string[]> {
-    if (await onChain()) return chain.chainDiscoverPoolContracts().catch(() => []);
-    return [];
 }
 
 export function getCosmWasmClient() {

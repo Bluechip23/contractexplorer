@@ -13,10 +13,8 @@ import type {
     HolderDistribution,
     PoolAnalyticsResponse,
     PoolCommitResponse,
-    PoolFeeStateResponse,
     PoolInfoResponse,
     PoolPairInfo,
-    PoolStateResponse,
     PoolSummary,
     PositionsResponse,
     ThresholdAnalytics,
@@ -138,10 +136,6 @@ export async function chainListPools(): Promise<PoolListEntry[]> {
     }
 }
 
-export async function chainDiscoverPoolContracts(): Promise<string[]> {
-    return (await chainListPools()).map((p) => p.pool_addr);
-}
-
 let indexedPoolsCache: Promise<Map<string, IndexedPool>> | null = null;
 
 function indexedPoolMap(): Promise<Map<string, IndexedPool>> {
@@ -163,18 +157,6 @@ export function chainQueryPoolPair(poolAddress: string): Promise<PoolPairInfo> {
 
 export function chainQueryPoolInfo(poolAddress: string): Promise<PoolInfoResponse> {
     return smart<PoolInfoResponse>(poolAddress, { pool_info: {} });
-}
-
-export function chainQueryPoolState(poolAddress: string): Promise<PoolStateResponse> {
-    return smart<PoolStateResponse>(poolAddress, { pool_state: {} });
-}
-
-export function chainQueryFeeState(poolAddress: string): Promise<PoolFeeStateResponse> {
-    return smart<PoolFeeStateResponse>(poolAddress, { fee_state: {} });
-}
-
-export function chainQueryCommitStatus(poolAddress: string): Promise<CommitStatus> {
-    return smart<CommitStatus>(poolAddress, { is_fully_commited: {} });
 }
 
 export function chainQueryPoolAnalytics(poolAddress: string): Promise<PoolAnalyticsResponse> {
