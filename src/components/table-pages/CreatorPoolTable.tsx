@@ -13,21 +13,9 @@ import {
     Checkbox,
     Chip,
     CircularProgress,
-    Collapse,
-    Dialog,
-    DialogContent,
-    DialogTitle,
-    Divider,
-    FormControlLabel,
-    Grid,
-    IconButton,
     Typography,
 } from '@mui/material';
 import CompareArrowsIcon from '@mui/icons-material/CompareArrows';
-import CloseIcon from '@mui/icons-material/Close';
-import FilterListIcon from '@mui/icons-material/FilterList';
-import KeyboardArrowDownIcon from '@mui/icons-material/KeyboardArrowDown';
-import KeyboardArrowUpIcon from '@mui/icons-material/KeyboardArrowUp';
 import { Link } from 'react-router-dom';
 import CopyableId from '../universal/CopyableId';
 import { factoryAddress } from '../universal/IndividualPage.const';
@@ -38,7 +26,7 @@ import {
     PoolSummary,
 } from '../../utils/contractQueries';
 import { compareMicro } from '../../utils/bigintMath';
-import { getPoolMetricValue } from '../portfolio/poolMetrics';
+import PoolCompareModal from '../compare/PoolCompareModal';
 import PoolActionMenu from '../actions/PoolActionMenu';
 
 interface Column {
@@ -58,206 +46,6 @@ const columns: readonly Column[] = [
     { id: 'committers', label: 'Committers' },
     { id: 'actions', label: '' },
 ];
-
-/* ── Pool comparison metric helpers ───────────────────────────────── */
-
-const POOL_COMPARE_METRICS = [
-    { key: 'totalLiquidity', label: 'Total Liquidity (TVL)' },
-    { key: 'totalFeesCollected', label: 'Total Fees Collected' },
-    { key: 'totalCommitters', label: 'Total Committers' },
-    { key: 'totalPositions', label: 'LP Positions' },
-    { key: 'raised', label: 'Amount Raised' },
-    { key: 'tokenPrice', label: 'Token Price' },
-    { key: 'marketCap', label: 'Market Cap' },
-    { key: 'reserve0', label: 'bluechip Reserve' },
-    { key: 'reserve1', label: 'Creator Token Reserve' },
-];
-
-
-function getPoolHighlightMap(pools: PoolSummary[], metrics: string[]): Map<string, Set<string>> {
-    const result = new Map<string, Set<string>>();
-    for (const metric of metrics) {
-        const values = pools.map((p) => ({ addr: p.poolAddress, val: getPoolMetricValue(p, metric) }));
-        const maxVal = Math.max(...values.map((v) => v.val));
-        const allEqual = values.every((v) => v.val === maxVal);
-        if (allEqual) {
-            result.set(metric, new Set());
-        } else {
-            result.set(metric, new Set(values.filter((v) => v.val === maxVal).map((v) => v.addr)));
-        }
-    }
-    return result;
-}
-
-function formatPoolMetric(pool: PoolSummary, metricKey: string): string {
-    const raw = getPoolMetricValue(pool, metricKey);
-    switch (metricKey) {
-        case 'tokenPrice':
-            return raw > 0 ? `${raw.toLocaleString(undefined, { minimumFractionDigits: 4, maximumFractionDigits: 6 })} BLC` : '-';
-        case 'totalCommitters':
-        case 'totalPositions':
-            return raw.toLocaleString();
-        default:
-            return formatMicroAmount(Math.floor(raw).toString());
-    }
-}
-
-/* ── Compare Pools Modal ──────────────────────────────────────────── */
-
-const ComparePoolsModal: React.FC<{
-    open: boolean;
-    onClose: () => void;
-    pools: PoolSummary[];
-}> = ({ open, onClose, pools }) => {
-    const [focusOpen, setFocusOpen] = React.useState(false);
-    const [focusMetrics, setFocusMetrics] = React.useState<Set<string>>(new Set());
-    const [deepCompare, setDeepCompare] = React.useState(false);
-
-    const toggleFocusMetric = (key: string) => {
-        setFocusMetrics((prev) => {
-            const next = new Set(prev);
-            if (next.has(key)) next.delete(key);
-            else next.add(key);
-            return next;
-        });
-    };
-
-    const allKeys = POOL_COMPARE_METRICS.map((m) => m.key);
-    const highlightMap = getPoolHighlightMap(pools, allKeys);
-    const focusHighlightMap = getPoolHighlightMap(pools, Array.from(focusMetrics));
-
-    return (
-        <Dialog open={open} onClose={onClose} maxWidth="lg" fullWidth>
-            <DialogTitle sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
-                <Typography variant="h6" fontWeight="bold">
-                    Compare Pools ({pools.length})
-                </Typography>
-                <IconButton onClick={onClose} size="small">
-                    <CloseIcon />
-                </IconButton>
-            </DialogTitle>
-
-            {/* Further Focus dropdown */}
-            <Box sx={{ px: 3, pb: 1 }}>
-                <Button
-                    variant="outlined"
-                    size="small"
-                    startIcon={<FilterListIcon />}
-                    endIcon={focusOpen ? <KeyboardArrowUpIcon /> : <KeyboardArrowDownIcon />}
-                    onClick={() => setFocusOpen(!focusOpen)}
-                >
-                    Further Focus{focusMetrics.size > 0 ? ` (${focusMetrics.size})` : ''}
-                </Button>
-                <Collapse in={focusOpen}>
-                    <Box sx={{ mt: 1, p: 2, border: 1, borderColor: 'divider', borderRadius: 1 }}>
-                        <Typography variant="caption" color="text.secondary" sx={{ mb: 1, display: 'block' }}>
-                            Select specific metrics to dive deeper into:
-                        </Typography>
-                        <Grid container spacing={0}>
-                            {POOL_COMPARE_METRICS.map((m) => (
-                                <Grid item xs={6} sm={4} key={m.key}>
-                                    <FormControlLabel
-                                        control={
-                                            <Checkbox
-                                                size="small"
-                                                checked={focusMetrics.has(m.key)}
-                                                onChange={() => toggleFocusMetric(m.key)}
-                                            />
-                                        }
-                                        label={<Typography variant="body2">{m.label}</Typography>}
-                                    />
-                                </Grid>
-                            ))}
-                        </Grid>
-                        <Box sx={{ display: 'flex', justifyContent: 'center', mt: 1.5 }}>
-                            <Button
-                                variant="contained"
-                                size="small"
-                                startIcon={<CompareArrowsIcon />}
-                                disabled={focusMetrics.size === 0}
-                                onClick={() => { setDeepCompare(true); setFocusOpen(false); }}
-                            >
-                                Compare Selected Metrics
-                            </Button>
-                        </Box>
-                    </Box>
-                </Collapse>
-            </Box>
-
-            <DialogContent dividers>
-                {deepCompare && focusMetrics.size > 0 ? (
-                    <>
-                        <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', mb: 2 }}>
-                            <Typography variant="subtitle1" fontWeight="bold">
-                                Focused Comparison — {focusMetrics.size} metric{focusMetrics.size !== 1 ? 's' : ''}
-                            </Typography>
-                            <Button size="small" onClick={() => setDeepCompare(false)}>
-                                Back to Full Compare
-                            </Button>
-                        </Box>
-                        <Grid container spacing={2}>
-                            {pools.map((pool) => (
-                                <Grid item xs={12} md={Math.max(4, Math.floor(12 / pools.length))} key={pool.poolAddress}>
-                                    <Box sx={{ border: 1, borderColor: 'divider', borderRadius: 2, p: 2 }}>
-                                        <Typography variant="subtitle1" fontWeight="bold" sx={{ mb: 1 }}>
-                                            {pool.tokenSymbol} — {pool.tokenName}
-                                        </Typography>
-                                        {POOL_COMPARE_METRICS.filter((m) => focusMetrics.has(m.key)).map((m) => {
-                                            const isHighest = focusHighlightMap.get(m.key)?.has(pool.poolAddress) ?? false;
-                                            return (
-                                                <Box key={m.key} sx={{ py: 1, borderBottom: '1px solid', borderColor: 'divider' }}>
-                                                    <Typography variant="caption" color="text.secondary">{m.label}</Typography>
-                                                    <Typography variant="h6" fontWeight="bold" sx={isHighest ? { color: '#4caf50' } : undefined}>
-                                                        {formatPoolMetric(pool, m.key)}
-                                                    </Typography>
-                                                </Box>
-                                            );
-                                        })}
-                                    </Box>
-                                </Grid>
-                            ))}
-                        </Grid>
-                    </>
-                ) : (
-                    <Grid container spacing={2}>
-                        {pools.map((pool) => (
-                            <Grid item xs={12} md={Math.max(4, Math.floor(12 / pools.length))} key={pool.poolAddress}>
-                                <Box sx={{ border: 1, borderColor: 'divider', borderRadius: 2, p: 2 }}>
-                                    <Box sx={{ display: 'flex', alignItems: 'center', gap: 1, mb: 1.5 }}>
-                                        <Typography variant="subtitle1" fontWeight="bold">
-                                            {pool.tokenSymbol}
-                                        </Typography>
-                                        <Typography variant="body2" color="text.secondary">
-                                            {pool.tokenName}
-                                        </Typography>
-                                        <Chip
-                                            label={pool.thresholdReached ? 'Active' : 'Pre-threshold'}
-                                            color={pool.thresholdReached ? 'success' : 'warning'}
-                                            size="small"
-                                            variant="outlined"
-                                            sx={{ ml: 'auto' }}
-                                        />
-                                    </Box>
-                                    {POOL_COMPARE_METRICS.map((m) => {
-                                        const isHighest = highlightMap.get(m.key)?.has(pool.poolAddress) ?? false;
-                                        return (
-                                            <Box key={m.key} sx={{ display: 'flex', justifyContent: 'space-between', py: 0.75, borderBottom: '1px solid', borderColor: 'divider' }}>
-                                                <Typography variant="body2" color="text.secondary">{m.label}</Typography>
-                                                <Typography variant="body2" fontWeight="bold" sx={isHighest ? { color: '#4caf50' } : undefined}>
-                                                    {formatPoolMetric(pool, m.key)}
-                                                </Typography>
-                                            </Box>
-                                        );
-                                    })}
-                                </Box>
-                            </Grid>
-                        ))}
-                    </Grid>
-                )}
-            </DialogContent>
-        </Dialog>
-    );
-};
 
 /* ── Creator Pool Table ───────────────────────────────────────────── */
 
@@ -430,7 +218,7 @@ const CreatorPoolTable: React.FC = () => {
                 />
             </Paper>
 
-            <ComparePoolsModal
+            <PoolCompareModal
                 open={showCompare}
                 onClose={() => setShowCompare(false)}
                 pools={rows.filter((r) => comparedAddresses.has(r.poolAddress))}

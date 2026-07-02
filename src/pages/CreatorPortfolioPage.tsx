@@ -27,7 +27,8 @@ import TokenPerformanceMetrics from '../components/TokenPerformanceMetrics';
 import { NotConnectedView } from '../components/universal/PortfolioShared';
 import StatCard from '../components/universal/StatCard';
 import PoolSelectorDropdown from '../components/portfolio/PoolSelectorDropdown';
-import ComparePoolsModal from '../components/portfolio/ComparePoolsModal';
+import PoolCompareModal from '../components/compare/PoolCompareModal';
+import { POOL_FOCUS_METRICS } from '../components/portfolio/poolMetrics';
 import CreatorEarningsTab from '../components/portfolio/CreatorEarningsTab';
 import NoPoolsView from '../components/portfolio/NoPoolsView';
 import {
@@ -184,10 +185,20 @@ const CreatorPortfolioPage: React.FC = () => {
                                 </Card>
                             )}
 
-                            <ComparePoolsModal
+                            <PoolCompareModal
                                 open={showCompare}
                                 onClose={() => setShowCompare(false)}
                                 pools={createdPools.filter((p) => comparedAddresses.has(p.poolAddress))}
+                                metrics={POOL_FOCUS_METRICS}
+                                summaryMetrics={[
+                                    { key: 'totalLiquidity', label: 'TVL' },
+                                    { key: 'totalFeesCollected', label: 'Total Fees' },
+                                    { key: 'totalCommitters', label: 'Committers' },
+                                    { key: 'tokenPrice', label: 'Price' },
+                                    { key: 'marketCap', label: 'Market Cap' },
+                                ]}
+                                showPerformance
+                                maxWidth="xl"
                             />
 
                             <CreatePoolModal
