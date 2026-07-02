@@ -36,7 +36,8 @@ import {
     formatLiquidityDepositSummary,
     humanizeContractError,
 } from '../../utils/security';
-import { compareMicro } from '../../utils/bigintMath';
+import { deadlineNs } from '../../utils/datetime';
+import { ensureCw20Allowance, minAmountAfterSlippage, resolvePoolAssets } from '../../utils/poolActions';
 
 
 interface BaseModalProps {
@@ -217,7 +218,7 @@ export const BuyPanel: React.FC<BasePanelProps> = ({ onClose, poolAddress, token
                     belief_price: null,
                     max_spread: spreadDecimal,
                     to: null,
-                    transaction_deadline: ((Date.now() + 20 * 60000) * 1000000).toString(),
+                    transaction_deadline: deadlineNs(20),
                 },
             };
 
@@ -418,7 +419,7 @@ export const SellPanel: React.FC<BasePanelProps & { creatorTokenAddress?: string
                     belief_price: null,
                     max_spread: spreadDecimal,
                     to: null,
-                    transaction_deadline: ((Date.now() + 20 * 60000) * 1000000).toString(),
+                    transaction_deadline: deadlineNs(20),
                 },
             };
             const msg = {
@@ -601,20 +602,8 @@ export const CommitPanel: React.FC<BasePanelProps & { thresholdReached?: boolean
                 return;
             }
             const micro = amtResult.micro;
-            const deadlineNs = ((Date.now() + 20 * 60000) * 1000000).toString();
-
-            // Pool denom is configurable per-pool; read it from pair {} rather than
-            // assuming NATIVE_DENOM so this still works if a future pool uses a
-            // different bluechip denom.
-            let bluechipDenom = NATIVE_DENOM;
-            try {
-                const pairInfo = await client.queryContractSmart(poolAddress, { pair: {} });
-                const infos: any[] = pairInfo?.asset_infos ?? [];
-                const found = infos.find((i) => i?.bluechip?.denom)?.bluechip?.denom;
-                if (typeof found === 'string' && found.length > 0) bluechipDenom = found;
-            } catch {
-                // Fall back to NATIVE_DENOM if the query fails.
-            }
+            const txDeadline = deadlineNs(20);
+            const { bluechipDenom } = await resolvePoolAssets(client, poolAddress);
 
             // max_spread only applies once the pool trades through the AMM;
             // the contract ignores it pre-threshold, so send null there.
@@ -626,7 +615,7 @@ export const CommitPanel: React.FC<BasePanelProps & { thresholdReached?: boolean
             const msg = {
                 commit: {
                     asset: { info: { bluechip: { denom: bluechipDenom } }, amount: micro },
-                    transaction_deadline: deadlineNs,
+                    transaction_deadline: txDeadline,
                     belief_price: null,
                     max_spread: spreadDecimal,
                 },
@@ -827,32 +816,20 @@ export const DepositLiquidityPanel: React.FC<BasePanelProps & { creatorTokenAddr
             const a0 = amt0Result.micro;
             const a1 = amt1Result.micro;
 
-            // Check/increase allowance
-            const allowance = await client.queryContractSmart(creatorTokenAddress, {
-                allowance: { owner: address, spender: poolAddress },
-            });
-            if (compareMicro(allowance.allowance, a1) < 0) {
-                await client.execute(
-                    address,
-                    creatorTokenAddress,
-                    { increase_allowance: { spender: poolAddress, amount: a1 } },
-                    { amount: [], gas: '200000' },
-                    'Approve',
-                    []
-                );
-            }
+            await ensureCw20Allowance(client, address, creatorTokenAddress, poolAddress, a1);
 
+            // SECURITY: slippage math done on BigInt micro-units to avoid
+            // floating-point drift for large deposits.
             const slipResult = validateSlippage(slippage);
-            const slipFactor = 1 - ((slipResult.pct ?? 1) / 100);
-            const deadlineNs = ((Date.now() + 20 * 60000) * 1000000).toString();
+            const slipPct = slipResult.pct ?? 1;
 
             const msg = {
                 deposit_liquidity: {
                     amount0: a0,
                     amount1: a1,
-                    min_amount0: Math.floor(parseFloat(a0) * slipFactor).toString(),
-                    min_amount1: Math.floor(parseFloat(a1) * slipFactor).toString(),
-                    transaction_deadline: deadlineNs,
+                    min_amount0: minAmountAfterSlippage(a0, slipPct),
+                    min_amount1: minAmountAfterSlippage(a1, slipPct),
+                    transaction_deadline: deadlineNs(20),
                 },
             };
 
@@ -1035,7 +1012,7 @@ export const RemoveLiquidityPanel: React.FC<BasePanelProps> = ({ onClose, poolAd
         try {
             const slipResult = validateSlippage(slippage);
             const deviationBps = Math.floor((slipResult.pct ?? 1) * 100);
-            const deadlineNs = ((Date.now() + 20 * 60000) * 1000000).toString();
+            const txDeadline = deadlineNs(20);
             const pct = parseInt(percentage, 10);
 
             let msg: any;
@@ -1046,7 +1023,7 @@ export const RemoveLiquidityPanel: React.FC<BasePanelProps> = ({ onClose, poolAd
                         min_amount0: null,
                         min_amount1: null,
                         max_ratio_deviation_bps: deviationBps,
-                        transaction_deadline: deadlineNs,
+                        transaction_deadline: txDeadline,
                     },
                 };
             } else {
@@ -1057,7 +1034,7 @@ export const RemoveLiquidityPanel: React.FC<BasePanelProps> = ({ onClose, poolAd
                         min_amount0: null,
                         min_amount1: null,
                         max_ratio_deviation_bps: deviationBps,
-                        transaction_deadline: deadlineNs,
+                        transaction_deadline: txDeadline,
                     },
                 };
             }

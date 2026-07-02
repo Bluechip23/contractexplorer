@@ -47,6 +47,7 @@ import StatCard from '../../components/universal/StatCard';
 import PoolPieChart from '../../components/individual-pages/PoolPieChart';
 import { useWallet } from '../../context/WalletContext';
 import { compareMicro, microToNumber, safeBigInt } from '../../utils/bigintMath';
+import { timeAgo } from '../../utils/datetime';
 
 function computeTokenPrice(reserve0: string, reserve1: string): string {
     const r0 = microToNumber(reserve0, 0);
@@ -523,13 +524,7 @@ const CreatorPoolPage: React.FC = () => {
                                                 <Grid item xs={6} sm={3}>
                                                     <StatCard
                                                         label="Last Trade"
-                                                        value={(() => {
-                                                            const secondsAgo = Math.floor(Date.now() / 1000) - analytics.analytics.last_trade_timestamp;
-                                                            if (secondsAgo < 60) return `${secondsAgo}s ago`;
-                                                            if (secondsAgo < 3600) return `${Math.floor(secondsAgo / 60)}m ago`;
-                                                            if (secondsAgo < 86400) return `${Math.floor(secondsAgo / 3600)}h ago`;
-                                                            return `${Math.floor(secondsAgo / 86400)}d ago`;
-                                                        })()}
+                                                        value={timeAgo(analytics.analytics.last_trade_timestamp)}
                                                     />
                                                 </Grid>
                                             )}

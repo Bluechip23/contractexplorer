@@ -27,7 +27,8 @@ import {
     validateSlippage,
     validateTokenAmount,
 } from '../utils/security';
-import { safeBigInt } from '../utils/bigintMath';
+import { deadlineNs } from '../utils/datetime';
+import { minAmountAfterSlippage } from '../utils/poolActions';
 
 // Cross-token swaps through the router contract. Creator tokens never
 // share a pool with each other — every pair routes through bluechip —
@@ -140,14 +141,10 @@ const CrossTokenSwapTab: React.FC<{ client: SigningCosmWasmClient | null; addres
             const micro = amtCheck.micro;
             // minimum_receive from the quote: final_amount minus tolerance,
             // BigInt math on micro-units.
-            const slipBps = BigInt(Math.round((slipCheck.pct ?? 1) * 100));
-            const minReceive = (safeBigInt(quote.final_amount) * (10_000n - slipBps)) / 10_000n;
-            const deadlineNs = ((Date.now() + 20 * 60000) * 1000000).toString();
-
             const hopArgs = {
                 operations: route,
-                minimum_receive: minReceive.toString(),
-                deadline: deadlineNs,
+                minimum_receive: minAmountAfterSlippage(quote.final_amount, slipCheck.pct ?? 1),
+                deadline: deadlineNs(20),
                 recipient: null as string | null,
             };
 
@@ -256,7 +253,7 @@ const CrossTokenSwapTab: React.FC<{ client: SigningCosmWasmClient | null; addres
                     <Typography variant="caption" color="text.secondary">
                         Price impact ~{(parseFloat(quote.price_impact) * 100).toFixed(2)}% ·
                         guaranteed minimum after {slippage}% slippage:{' '}
-                        {formatMicroAmount(((safeBigInt(quote.final_amount) * (10_000n - BigInt(Math.round((parseFloat(slippage) || 1) * 100)))) / 10_000n).toString())}
+                        {formatMicroAmount(minAmountAfterSlippage(quote.final_amount, parseFloat(slippage) || 1))}
                     </Typography>
                 </Alert>
             )}

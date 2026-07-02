@@ -47,6 +47,7 @@ import {
     ThresholdAnalytics,
 } from '../utils/contractQueries';
 import { microToNumber, safeBigInt } from '../utils/bigintMath';
+import { timeAgo } from '../utils/datetime';
 
 type TimePeriod = '1m' | '3m' | '1y';
 
@@ -637,13 +638,7 @@ const TokenPerformanceMetrics: React.FC<TokenPerformanceMetricsProps> = ({ pool 
                             <MetricRow
                                 icon={<ViewInArIcon color="action" />}
                                 label="Last Trade"
-                                value={(() => {
-                                    const secondsAgo = Math.floor(Date.now() / 1000) - onChainAnalytics.analytics.last_trade_timestamp;
-                                    if (secondsAgo < 60) return `${secondsAgo}s ago`;
-                                    if (secondsAgo < 3600) return `${Math.floor(secondsAgo / 60)}m ago`;
-                                    if (secondsAgo < 86400) return `${Math.floor(secondsAgo / 3600)}h ago`;
-                                    return `${Math.floor(secondsAgo / 86400)}d ago`;
-                                })()}
+                                value={timeAgo(onChainAnalytics.analytics.last_trade_timestamp)}
                                 subtext={`Block #${onChainAnalytics.analytics.last_trade_block.toLocaleString()}`}
                             />
                         )}
