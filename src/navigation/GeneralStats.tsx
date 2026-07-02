@@ -2,14 +2,18 @@ import { Button, Paper, Stack, TextField, Typography } from '@mui/material';
 import React, { useEffect, useState } from 'react';
 import { fetchTransaction, fetchWallet, fetchBlock } from './SearchBarLogic';
 import { useNavigate } from 'react-router-dom';
-import { rpcEndpoint, apiEndpoint } from '../components/universal/IndividualPage.const';
+import { rpcEndpoint, apiEndpoint, denom } from '../components/universal/IndividualPage.const';
+import { queryBluechipOraclePrice } from '../utils/contractQueries';
+import { formatMicroAmount } from '../utils/bigintMath';
 import axios from 'axios';
 
 const GeneralStats: React.FC = () => {
     const [searchValue, setSearchValue] = useState('');
     const [recentBlock, setRecentBlock] = useState(0);
-    const [totalSupply, setTotalSupply] = useState(0);
-    const [totalStaked, setTotalStaked] = useState(0);
+    const [totalSupply, setTotalSupply] = useState('');
+    const [totalStaked, setTotalStaked] = useState('');
+    const [inflation, setInflation] = useState('');
+    const [price, setPrice] = useState('');
     const [transactionsInblock, setTransactionsInblock] = useState(0);
     const [error, setError] = useState('');
     const navigateTo = useNavigate();
@@ -18,10 +22,12 @@ const GeneralStats: React.FC = () => {
         const controller = new AbortController();
 
         const fetchAllStats = async () => {
-            const [statusResult, stakingResult, supplyResult] = await Promise.allSettled([
+            const [statusResult, stakingResult, supplyResult, inflationResult, priceResult] = await Promise.allSettled([
                 axios.get(`${rpcEndpoint}/status`, { signal: controller.signal }),
                 axios.get(`${apiEndpoint}/cosmos/staking/v1beta1/pool`, { signal: controller.signal }),
-                axios.get(`${apiEndpoint}/cosmos/mint/v1beta1/annual_provisions`, { signal: controller.signal }),
+                axios.get(`${apiEndpoint}/cosmos/bank/v1beta1/supply/by_denom?denom=${denom}`, { signal: controller.signal }),
+                axios.get(`${apiEndpoint}/cosmos/mint/v1beta1/inflation`, { signal: controller.signal }),
+                queryBluechipOraclePrice(),
             ]);
 
             if (controller.signal.aborted) return;
@@ -38,11 +44,21 @@ const GeneralStats: React.FC = () => {
             }
 
             if (stakingResult.status === 'fulfilled') {
-                setTotalStaked(stakingResult.value.data.pool.bonded_tokens);
+                setTotalStaked(formatMicroAmount(stakingResult.value.data.pool.bonded_tokens, 6, 0));
             }
 
             if (supplyResult.status === 'fulfilled') {
-                setTotalSupply(supplyResult.value.data.amount);
+                setTotalSupply(formatMicroAmount(supplyResult.value.data.amount?.amount, 6, 0));
+            }
+
+            if (inflationResult.status === 'fulfilled') {
+                const rate = parseFloat(inflationResult.value.data.inflation);
+                if (Number.isFinite(rate)) setInflation(`${(rate * 100).toFixed(2)}%`);
+            }
+
+            // Oracle price is micro-USD per bluechip.
+            if (priceResult.status === 'fulfilled' && priceResult.value) {
+                setPrice(`$${formatMicroAmount(priceResult.value.price, 6, 4)}`);
             }
         };
 
@@ -84,12 +100,13 @@ const GeneralStats: React.FC = () => {
                         Search
                     </Button>
                 </Stack>
+                {error && <Typography variant="body2" color="error">{error}</Typography>}
                 <Stack spacing={1}>
                     <Stack direction={{ xs: 'column', md: 'row' }} spacing={{ xs: 1, md: 4 }} flexWrap="wrap">
-                        <Typography variant="body2">Blue Chip Price: $0 </Typography>
-                        <Typography variant="body2">Total Supply: {totalSupply}</Typography>
-                        <Typography variant="body2">Total Staked: {totalStaked}</Typography>
-                        <Typography variant="body2">Annual Inflation: 17.52% </Typography>
+                        <Typography variant="body2">Blue Chip Price: {price || '—'}</Typography>
+                        <Typography variant="body2">Total Supply: {totalSupply || '—'}</Typography>
+                        <Typography variant="body2">Total Staked: {totalStaked || '—'}</Typography>
+                        <Typography variant="body2">Annual Inflation: {inflation || '—'}</Typography>
                     </Stack>
                     <Stack direction={{ xs: 'column', md: 'row' }} spacing={{ xs: 1, md: 4 }} flexWrap="wrap">
                         <Typography variant="body2">Block Height: {recentBlock}</Typography>

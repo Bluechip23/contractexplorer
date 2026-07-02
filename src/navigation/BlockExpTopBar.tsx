@@ -56,9 +56,6 @@ const BlockExpTopBar: React.FC = () => {
                 >
                     Bluechip Explorer
                 </RouterLink>
-                <Typography sx={{ opacity: 0.85, fontSize: '0.9rem' }}>
-                    blue chip price:
-                </Typography>
                 {address ? (
                     <MuiLink component={RouterLink} to="/defi?tab=commit" sx={topBarLinkSx}>
                         <VolunteerActivismIcon fontSize="small" />

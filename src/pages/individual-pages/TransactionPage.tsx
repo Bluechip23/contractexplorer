@@ -1,11 +1,7 @@
 import React, { useEffect, useState } from 'react'
-import { Layout } from '../../ui';
 import { Card, CardContent, Chip, Divider, Grid, Stack, Typography } from '@mui/material';
 import { Link, useParams } from 'react-router-dom';
-import BlockExpSideBar from '../../navigation/BlockExpSideBar';
-import BlockExpTopBar from '../../navigation/BlockExpTopBar';
-import BlockExplorerNavBar from '../../navigation/BlockExplorerNavBar';
-import GeneralStats from '../../navigation/GeneralStats';
+import PageShell from '../../components/universal/PageShell';
 import RecentTransactionsTable from '../../components/table-pages/RecentTransactionsTable';
 import { apiEndpoint } from '../../components/universal/IndividualPage.const';
 import { decodeMessageType, describeWasmExecute, formatAmount, formatDenom, WasmActionInfo } from '../../utils/txDecoder';
@@ -115,18 +111,10 @@ const TransactionPage: React.FC = () => {
     }, [id]);
 
     if (!id) {
-        return <Layout NavBar={<BlockExpTopBar />} SideBar={<BlockExpSideBar />}><Typography>Transaction ID Not Provided</Typography></Layout>;
+        return <PageShell width={8} showStats={false}><Grid item xs={12} md={8}><Typography>Transaction ID Not Provided</Typography></Grid></PageShell>;
     }
     return (
-        <Layout NavBar={<BlockExpTopBar />} SideBar={<BlockExpSideBar />}>
-
-            <Grid container spacing={2} justifyContent='center' alignItems='center'>
-                <Grid item xs={12} md={8} sx={{ mt: '10px' }}>
-                    <Stack spacing={2}>
-                        <BlockExplorerNavBar />
-                        <GeneralStats />
-                    </Stack>
-                </Grid>
+        <PageShell width={8}>
                 <Grid item xs={12} md={8}>
                     {loading ? (
                         <CardSkeleton />
@@ -177,8 +165,7 @@ const TransactionPage: React.FC = () => {
                 <Grid item xs={12} md={8}>
                     <RecentTransactionsTable />
                 </Grid>
-            </Grid>
-        </Layout>
+        </PageShell>
     )
 }
 export default TransactionPage;

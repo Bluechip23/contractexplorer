@@ -1,5 +1,5 @@
 import React from 'react';
-import { Layout } from '../ui';
+import PageShell from '../components/universal/PageShell';
 import {
     Box,
     Card,
@@ -21,10 +21,6 @@ import {
     Chip,
 } from '@mui/material';
 import ExpandMoreIcon from '@mui/icons-material/ExpandMore';
-import BlockExpTopBar from '../navigation/BlockExpTopBar';
-import BlockExpSideBar from '../navigation/BlockExpSideBar';
-import BlockExplorerNavBar from '../navigation/BlockExplorerNavBar';
-import GeneralStats from '../navigation/GeneralStats';
 import CodeBlock from '../components/universal/CodeBlock';
 import SectionCard from '../components/universal/DocSectionCard';
 
@@ -1341,13 +1337,9 @@ const tocItems = [
 
 const IntegrationGuidePage: React.FC = () => {
     return (
-        <Layout NavBar={<BlockExpTopBar />} SideBar={<BlockExpSideBar />}>
-            <Grid container spacing={2} sx={{ mt: 2, mb: 4 }}>
+        <PageShell>
                 <Grid item xs={12} md={10} lg={8}>
                     <Stack spacing={2}>
-                        <BlockExplorerNavBar />
-                        <GeneralStats />
-
                         {/* Header */}
                         <Card>
                             <CardContent>
@@ -1809,8 +1801,7 @@ const IntegrationGuidePage: React.FC = () => {
                         </SectionCard>
                     </Stack>
                 </Grid>
-            </Grid>
-        </Layout>
+        </PageShell>
     );
 };
 

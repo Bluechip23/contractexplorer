@@ -1,30 +1,11 @@
-import { Grid, Stack, Typography } from '@mui/material';
-import { Layout } from '../../ui';
 import React from 'react';
-import BlockExpSideBar from '../../navigation/BlockExpSideBar';
-import BlockExpTopBar from '../../navigation/BlockExpTopBar';
-import GeneralStats from '../../navigation/GeneralStats';
-import BlockExplorerNavBar from '../../navigation/BlockExplorerNavBar';
+import TablePage from '../../components/universal/TablePage';
 import BlueChipTokenTransactionsTable from '../../components/table-pages/BluechipTokenTransactionsTable';
 
+const RecentBlueChipTransactionsPage: React.FC = () => (
+    <TablePage title="Recent blue chip Transactions">
+        <BlueChipTokenTransactionsTable />
+    </TablePage>
+);
 
-const RecentBlueChipTransactionPage: React.FC = () => {
-    return (
-        <Layout NavBar={<BlockExpTopBar/>} SideBar={<BlockExpSideBar/>} >
-
-            <Stack direction='row' alignItems='center' justifyContent='space-around'>
-                <Typography variant='h3' sx={{ marginBottom: '10px', }}>Recent blue chip Transactions</Typography>
-                <BlockExplorerNavBar />
-            </Stack>
-            <Grid container alignItems='center' justifyContent='center'>
-                <Grid item xs={10}>
-                    <GeneralStats />
-                </Grid>
-                <Grid item xs={10}>
-                    <BlueChipTokenTransactionsTable/>
-                </Grid>
-            </Grid>
-        </Layout>
-    )
-}
-export default RecentBlueChipTransactionPage;
+export default RecentBlueChipTransactionsPage;

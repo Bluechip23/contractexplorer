@@ -1,12 +1,8 @@
 import React, { useEffect, useState } from 'react'
-import { Layout } from '../../ui';
-import { Card, CardContent, Divider, Grid, Stack, Typography } from '@mui/material';
-import BlockExpTopBar from '../../navigation/BlockExpTopBar';
-import BlockExpSideBar from '../../navigation/BlockExpSideBar';
+import { Card, CardContent, Divider, Grid, Typography } from '@mui/material';
 import BlockTransactionsTable from '../../components/individual-pages/BlockTransactionsTable';
 import { Link, useParams } from 'react-router-dom';
-import GeneralStats from '../../navigation/GeneralStats';
-import BlockExplorerNavBar from '../../navigation/BlockExplorerNavBar';
+import PageShell from '../../components/universal/PageShell';
 import { rpcEndpoint } from '../../components/universal/IndividualPage.const';
 import axios from 'axios';
 import { CardSkeleton, TableSkeleton } from '../../components/universal/LoadingSkeleton';
@@ -122,17 +118,10 @@ const BlockPage: React.FC = () => {
     }, [id]);
 
     if (!id) {
-        return <Layout NavBar={<BlockExpTopBar />} SideBar={<BlockExpSideBar />} ><Typography>Block Not Found</Typography></Layout>;
+        return <PageShell width={8} showStats={false}><Grid item xs={12} md={8}><Typography>Block Not Found</Typography></Grid></PageShell>;
     }
     return (
-        <Layout NavBar={<BlockExpTopBar />} SideBar={<BlockExpSideBar />}>
-            <Grid container spacing={5} justifyContent='center' alignItems='center'>
-                <Grid item xs={12} md={8} sx={{ mt: '10px' }}>
-                    <Stack spacing={2}>
-                        <BlockExplorerNavBar />
-                        <GeneralStats />
-                    </Stack>
-                </Grid>
+        <PageShell width={8}>
                 <Grid item xs={12} md={8}>
                     {loading ? (
                         <CardSkeleton />
@@ -154,8 +143,7 @@ const BlockPage: React.FC = () => {
                 <Grid item xs={12} md={8}>
                     {loading ? <TableSkeleton /> : <BlockTransactionsTable rows={rows} />}
                 </Grid>
-            </Grid>
-        </Layout>
+        </PageShell>
     )
 }
 export default BlockPage;

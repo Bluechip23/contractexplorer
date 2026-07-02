@@ -1,13 +1,9 @@
-import { Chip, Grid, Stack } from '@mui/material';
+import { Chip, Grid } from '@mui/material';
 import React, { useEffect, useState } from 'react';
-import { Layout } from '../ui';
-import BlockExpTopBar from '../navigation/BlockExpTopBar';
-import BlockExpSideBar from '../navigation/BlockExpSideBar';
-import GeneralStats from '../navigation/GeneralStats';
+import PageShell from '../components/universal/PageShell';
 import OpsStatusStrip from '../components/universal/OpsStatusStrip';
 import RecentBlocksTable from '../components/table-pages/RecentBlocksTable';
 import RecentTransactionsTable from '../components/table-pages/RecentTransactionsTable';
-import BlockExplorerNavBar from '../navigation/BlockExplorerNavBar';
 import { rpcEndpoint } from '../components/universal/IndividualPage.const';
 import FiberManualRecordIcon from '@mui/icons-material/FiberManualRecord';
 
@@ -54,9 +50,8 @@ const FrontPage: React.FC = () => {
     }, []);
 
     return (
-        <Layout NavBar={<BlockExpTopBar />} SideBar={<BlockExpSideBar />} >
-            <Stack direction='row' alignItems='center' justifyContent='space-between'>
-                <BlockExplorerNavBar />
+        <PageShell
+            headerExtra={
                 <Chip
                     icon={<FiberManualRecordIcon sx={{ fontSize: 12 }} />}
                     label={wsConnected ? `Live${latestBlockWs ? ` #${latestBlockWs}` : ''}` : 'Connecting...'}
@@ -64,11 +59,8 @@ const FrontPage: React.FC = () => {
                     size="small"
                     variant="outlined"
                 />
-            </Stack>
-            <Grid container alignItems='center' justifyContent='center' spacing={2}>
-                <Grid item xs={12} md={10}>
-                    <GeneralStats />
-                </Grid>
+            }
+        >
                 <Grid item xs={12} md={10}>
                     <OpsStatusStrip />
                 </Grid>
@@ -78,8 +70,7 @@ const FrontPage: React.FC = () => {
                 <Grid item xs={12} md={6}>
                     <RecentTransactionsTable />
                 </Grid>
-            </Grid>
-        </Layout>
+        </PageShell>
     )
 }
 export default FrontPage;

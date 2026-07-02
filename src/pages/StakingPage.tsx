@@ -1,5 +1,5 @@
 import React, { useEffect, useState } from 'react';
-import { Layout } from '../ui';
+import PageShell from '../components/universal/PageShell';
 import {
     Box,
     Button,
@@ -25,10 +25,6 @@ import {
     Paper,
     Alert,
 } from '@mui/material';
-import BlockExpTopBar from '../navigation/BlockExpTopBar';
-import BlockExpSideBar from '../navigation/BlockExpSideBar';
-import BlockExplorerNavBar from '../navigation/BlockExplorerNavBar';
-import GeneralStats from '../navigation/GeneralStats';
 import { apiEndpoint } from '../components/universal/IndividualPage.const';
 import { formatAmount } from '../utils/txDecoder';
 import { compareMicro, safeBigInt } from '../utils/bigintMath';
@@ -100,14 +96,7 @@ const StakingPage: React.FC = () => {
     };
 
     return (
-        <Layout NavBar={<BlockExpTopBar />} SideBar={<BlockExpSideBar />}>
-            <Grid container justifyContent="center" alignItems="center" spacing={2}>
-                <Grid item xs={10} sx={{ mt: '10px' }}>
-                    <Stack spacing={2}>
-                        <BlockExplorerNavBar />
-                        <GeneralStats />
-                    </Stack>
-                </Grid>
+        <PageShell>
                 <Grid item xs={10}>
                     <Typography variant="h4" sx={{ mb: 2 }}>
                         Staking
@@ -223,7 +212,6 @@ const StakingPage: React.FC = () => {
                         </Paper>
                     )}
                 </Grid>
-            </Grid>
 
             <Dialog open={delegateDialog} onClose={() => setDelegateDialog(false)} maxWidth="sm" fullWidth>
                 <DialogTitle>Delegate to Validator</DialogTitle>
@@ -266,7 +254,7 @@ const StakingPage: React.FC = () => {
                     </Button>
                 </DialogActions>
             </Dialog>
-        </Layout>
+        </PageShell>
     );
 };
 

@@ -1,11 +1,7 @@
 import React, { useEffect, useState } from 'react';
-import { Card, CardContent, Chip, CircularProgress, Divider, Grid, Stack, Typography, Box } from '@mui/material';
-import BlockExpSideBar from '../../navigation/BlockExpSideBar';
-import BlockExpTopBar from '../../navigation/BlockExpTopBar';
-import { Layout } from '../../ui';
+import { Card, CardContent, Chip, CircularProgress, Divider, Grid, Typography, Box } from '@mui/material';
 import { Link, useParams } from 'react-router-dom';
-import BlockExplorerNavBar from '../../navigation/BlockExplorerNavBar';
-import GeneralStats from '../../navigation/GeneralStats';
+import PageShell from '../../components/universal/PageShell';
 import {
     queryTokenInfo,
     fetchAllPoolSummaries,
@@ -46,18 +42,11 @@ const CreatorTokenPage: React.FC = () => {
     }, [id]);
 
     if (!id) {
-        return <Layout NavBar={<BlockExpTopBar />} SideBar={<BlockExpSideBar />}><Typography>Token Not Found</Typography></Layout>;
+        return <PageShell width={8} showStats={false}><Grid item xs={12} md={8}><Typography>Token Not Found</Typography></Grid></PageShell>;
     }
 
     return (
-        <Layout NavBar={<BlockExpTopBar />} SideBar={<BlockExpSideBar />}>
-            <Grid container spacing={2} justifyContent='center' alignItems='center'>
-                <Grid item xs={12} md={8} sx={{ mt: '10px' }}>
-                    <Stack spacing={2}>
-                        <BlockExplorerNavBar />
-                        <GeneralStats />
-                    </Stack>
-                </Grid>
+        <PageShell width={8}>
                 <Grid item xs={12} md={8}>
                     {loading ? (
                         <Box sx={{ textAlign: 'center', py: 4 }}>
@@ -99,8 +88,7 @@ const CreatorTokenPage: React.FC = () => {
                         </Card>
                     )}
                 </Grid>
-            </Grid>
-        </Layout>
+        </PageShell>
     );
 };
 

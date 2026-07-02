@@ -3,11 +3,7 @@ import { useLocation } from 'react-router-dom';
 import { Grid, Stack, Typography, Tabs, Tab, Box, Card, CardContent, TextField, Button, Alert, IconButton, Tooltip } from '@mui/material';
 import ContentCopyIcon from '@mui/icons-material/ContentCopy';
 import { SigningCosmWasmClient } from '@cosmjs/cosmwasm-stargate';
-import { Layout } from '../ui';
-import BlockExpTopBar from '../navigation/BlockExpTopBar';
-import BlockExpSideBar from '../navigation/BlockExpSideBar';
-import BlockExplorerNavBar from '../navigation/BlockExplorerNavBar';
-import GeneralStats from '../navigation/GeneralStats';
+import PageShell from '../components/universal/PageShell';
 import CommitTracker from './CommitTracker';
 import OracleStatusBanner from '../components/universal/OracleStatusBanner';
 import CrossTokenSwapTab from './CrossTokenSwapTab';
@@ -714,15 +710,7 @@ const DefiPage: React.FC = () => {
     }, [location.search]);
 
     return (
-        <Layout NavBar={<BlockExpTopBar />} SideBar={<BlockExpSideBar />}>
-            <Grid container justifyContent="center" spacing={2}>
-                <Grid item xs={12} md={10}>
-                    <Stack direction="row" alignItems="center" justifyContent="space-between" sx={{ mb: 1 }}>
-                        <BlockExplorerNavBar />
-                    </Stack>
-                    <GeneralStats />
-                </Grid>
-
+        <PageShell>
                 <Grid item xs={12} md={10}>
                     <Card>
                         <CardContent>
@@ -771,8 +759,7 @@ const DefiPage: React.FC = () => {
                         </CardContent>
                     </Card>
                 </Grid>
-            </Grid>
-        </Layout>
+        </PageShell>
     );
 };
 

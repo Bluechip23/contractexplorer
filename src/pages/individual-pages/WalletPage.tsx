@@ -1,11 +1,7 @@
 import React, { useEffect, useState } from 'react'
-import { Layout } from '../../ui';
-import { Card, CardContent, Divider, Grid, Stack, Typography } from '@mui/material';
-import BlockExpSideBar from '../../navigation/BlockExpSideBar';
-import BlockExpTopBar from '../../navigation/BlockExpTopBar';
+import { Card, CardContent, Divider, Grid, Typography } from '@mui/material';
 import { useParams } from 'react-router-dom';
-import BlockExplorerNavBar from '../../navigation/BlockExplorerNavBar';
-import GeneralStats from '../../navigation/GeneralStats';
+import PageShell from '../../components/universal/PageShell';
 import WalletsHoldingsTable from '../../components/individual-pages/WalletHoldingsTable';
 import WalletTransactionsTable from '../../components/individual-pages/WalletTransactionsTable';
 import { apiEndpoint, rpcEndpoint } from '../../components/universal/IndividualPage.const';
@@ -63,17 +59,10 @@ const Wallet: React.FC = () => {
     }, [id]);
 
     if (!id) {
-        return <Layout NavBar={<BlockExpTopBar />} SideBar={<BlockExpSideBar />} ><Typography>Wallet Not Found</Typography></Layout>;
+        return <PageShell width={8} showStats={false}><Grid item xs={12} md={8}><Typography>Wallet Not Found</Typography></Grid></PageShell>;
     }
     return (
-        <Layout NavBar={<BlockExpTopBar />} SideBar={<BlockExpSideBar />}>
-            <Grid container justifyContent='center' alignItems='center' spacing={5}>
-                <Grid item xs={12} md={8} sx={{ mt: '10px' }}>
-                    <Stack spacing={2}>
-                        <BlockExplorerNavBar />
-                        <GeneralStats />
-                    </Stack>
-                </Grid>
+        <PageShell width={8}>
                 <Grid item xs={12} md={4}>
                     {loading ? (
                         <CardSkeleton />
@@ -96,8 +85,7 @@ const Wallet: React.FC = () => {
                 <Grid item xs={12} md={8}>
                     <WalletCommitHistory wallet={id} />
                 </Grid>
-            </Grid>
-        </Layout>
+        </PageShell>
     )
 }
 export default Wallet;

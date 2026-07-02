@@ -1,5 +1,4 @@
 import React, { useEffect, useState } from 'react';
-import { Layout } from '../../ui';
 import {
     Alert,
     Box,
@@ -10,14 +9,10 @@ import {
     Divider,
     Grid,
     LinearProgress,
-    Stack,
     Typography,
 } from '@mui/material';
-import BlockExpTopBar from '../../navigation/BlockExpTopBar';
-import BlockExpSideBar from '../../navigation/BlockExpSideBar';
 import { Link, useParams } from 'react-router-dom';
-import BlockExplorerNavBar from '../../navigation/BlockExplorerNavBar';
-import GeneralStats from '../../navigation/GeneralStats';
+import PageShell from '../../components/universal/PageShell';
 import PoolHistoryPanel from '../../components/PoolHistoryPanel';
 import PoolStatusBanners from '../../components/universal/PoolStatusBanners';
 import {
@@ -227,9 +222,9 @@ const CreatorPoolPage: React.FC = () => {
 
     if (!id) {
         return (
-            <Layout NavBar={<BlockExpTopBar />} SideBar={<BlockExpSideBar />}>
-                <Typography>Creator Pool Not Found</Typography>
-            </Layout>
+            <PageShell width={8} showStats={false}>
+                <Grid item xs={12} md={8}><Typography>Creator Pool Not Found</Typography></Grid>
+            </PageShell>
         );
     }
 
@@ -247,15 +242,7 @@ const CreatorPoolPage: React.FC = () => {
         : '-';
 
     return (
-        <Layout NavBar={<BlockExpTopBar />} SideBar={<BlockExpSideBar />}>
-            <Grid container justifyContent='center' alignItems='center' spacing={4}>
-                <Grid item xs={12} md={8} sx={{ mt: '10px' }}>
-                    <Stack spacing={2}>
-                        <BlockExplorerNavBar />
-                        <GeneralStats />
-                    </Stack>
-                </Grid>
-
+        <PageShell width={8}>
                 {loading ? (
                     <Grid item xs={12} md={8} sx={{ textAlign: 'center', py: 4 }}>
                         <CircularProgress />
@@ -772,8 +759,7 @@ const CreatorPoolPage: React.FC = () => {
                         )}
                     </>
                 )}
-            </Grid>
-        </Layout>
+        </PageShell>
     );
 };
 
