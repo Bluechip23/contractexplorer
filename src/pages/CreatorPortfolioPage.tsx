@@ -1,10 +1,10 @@
 import React, { useEffect, useState } from 'react';
+import { PoolStatusChip } from '../components/universal/tablePrimitives';
 import {
     Box,
     Button,
     Card,
     CardContent,
-    Chip,
     CircularProgress,
     Grid,
     Stack,
@@ -141,12 +141,7 @@ const CreatorPortfolioPage: React.FC = () => {
                                             <Typography variant="h6" fontWeight="bold">
                                                 {selectedPool.tokenSymbol}
                                             </Typography>
-                                            <Chip
-                                                label={selectedPool.thresholdReached ? 'Active' : 'Pre-threshold'}
-                                                color={selectedPool.thresholdReached ? 'success' : 'warning'}
-                                                size="small"
-                                                variant="outlined"
-                                            />
+                                            <PoolStatusChip thresholdReached={selectedPool.thresholdReached} />
                                             <Typography variant="body2" color="text.secondary" sx={{ ml: 'auto' }}>
                                                 <Link to={`/creatorpool/${selectedPool.poolAddress}`} style={{ textDecoration: 'none', color: 'inherit' }}>
                                                     View full details →

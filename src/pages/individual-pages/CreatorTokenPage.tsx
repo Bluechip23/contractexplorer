@@ -1,5 +1,6 @@
 import React, { useEffect, useState } from 'react';
-import { Card, CardContent, Chip, CircularProgress, Divider, Grid, Typography, Box } from '@mui/material';
+import { PoolStatusChip } from '../../components/universal/tablePrimitives';
+import { Card, CardContent, CircularProgress, Divider, Grid, Typography, Box } from '@mui/material';
 import { Link, useParams } from 'react-router-dom';
 import PageShell from '../../components/universal/PageShell';
 import {
@@ -61,11 +62,7 @@ const CreatorTokenPage: React.FC = () => {
                                 <Box sx={{ display: 'flex', alignItems: 'center', gap: 2, mb: 1 }}>
                                     <Typography variant='h5'>{tokenInfo.name} ({tokenInfo.symbol})</Typography>
                                     {pool && (
-                                        <Chip
-                                            label={pool.thresholdReached ? 'Active' : 'Pre-threshold'}
-                                            color={pool.thresholdReached ? 'success' : 'warning'}
-                                            size="small"
-                                        />
+                                        <PoolStatusChip thresholdReached={pool.thresholdReached} variant="filled" />
                                     )}
                                 </Box>
                                 <Divider />

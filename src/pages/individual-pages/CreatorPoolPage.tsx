@@ -1,6 +1,6 @@
 import React, { useEffect, useState } from 'react';
+import { PoolStatusChip } from '../../components/universal/tablePrimitives';
 import {
-    Alert,
     Box,
     Card,
     CardContent,
@@ -261,11 +261,7 @@ const CreatorPoolPage: React.FC = () => {
                                         <Typography variant='h5' sx={{ fontWeight: 'bold' }}>
                                             {pool.tokenName} ({pool.tokenSymbol})
                                         </Typography>
-                                        <Chip
-                                            label={pool.thresholdReached ? 'Active' : 'Pre-threshold'}
-                                            color={pool.thresholdReached ? 'success' : 'warning'}
-                                            size="small"
-                                        />
+                                        <PoolStatusChip thresholdReached={pool.thresholdReached} variant="filled" />
                                         <Chip label={poolTypeLabel} size="small" variant="outlined" />
                                         {isCreator && (
                                             <Chip label="You are the Creator" color="primary" size="small" />
@@ -525,77 +521,6 @@ const CreatorPoolPage: React.FC = () => {
                                 </Card>
                             </Grid>
                         )}
-
-                        {/* Indexer Placeholder: Historical Data (requires indexer) */}
-                        <Grid item xs={12} md={8}>
-                            <Card sx={{ border: '1px dashed', borderColor: 'divider', opacity: 0.7 }}>
-                                <CardContent>
-                                    <Typography variant="h6" color="text.secondary" sx={{ mb: 1 }}>
-                                        Historical Data
-                                    </Typography>
-                                    <Alert severity="info" sx={{ mb: 2 }}>
-                                        The following sections require an indexer to track historical state changes over time.
-                                        On-chain queries only provide current state — time-series data needs event indexing.
-                                    </Alert>
-                                    <Grid container spacing={2}>
-                                        <Grid item xs={12} sm={6}>
-                                            <Card variant="outlined" sx={{ height: 180, display: 'flex', alignItems: 'center', justifyContent: 'center', bgcolor: 'action.hover' }}>
-                                                <Box sx={{ textAlign: 'center' }}>
-                                                    <BarChartIcon sx={{ fontSize: 40, color: 'text.disabled' }} />
-                                                    <Typography variant="body2" color="text.disabled">Price History Chart</Typography>
-                                                    <Typography variant="caption" color="text.disabled">Indexed from swap events</Typography>
-                                                </Box>
-                                            </Card>
-                                        </Grid>
-                                        <Grid item xs={12} sm={6}>
-                                            <Card variant="outlined" sx={{ height: 180, display: 'flex', alignItems: 'center', justifyContent: 'center', bgcolor: 'action.hover' }}>
-                                                <Box sx={{ textAlign: 'center' }}>
-                                                    <BarChartIcon sx={{ fontSize: 40, color: 'text.disabled' }} />
-                                                    <Typography variant="body2" color="text.disabled">Volume Over Time</Typography>
-                                                    <Typography variant="caption" color="text.disabled">Indexed from swap events</Typography>
-                                                </Box>
-                                            </Card>
-                                        </Grid>
-                                        <Grid item xs={12} sm={6}>
-                                            <Card variant="outlined" sx={{ height: 180, display: 'flex', alignItems: 'center', justifyContent: 'center', bgcolor: 'action.hover' }}>
-                                                <Box sx={{ textAlign: 'center' }}>
-                                                    <BarChartIcon sx={{ fontSize: 40, color: 'text.disabled' }} />
-                                                    <Typography variant="body2" color="text.disabled">Trade History Table</Typography>
-                                                    <Typography variant="caption" color="text.disabled">Indexed from swap events (price, amount, sender, block)</Typography>
-                                                </Box>
-                                            </Card>
-                                        </Grid>
-                                        <Grid item xs={12} sm={6}>
-                                            <Card variant="outlined" sx={{ height: 180, display: 'flex', alignItems: 'center', justifyContent: 'center', bgcolor: 'action.hover' }}>
-                                                <Box sx={{ textAlign: 'center' }}>
-                                                    <BarChartIcon sx={{ fontSize: 40, color: 'text.disabled' }} />
-                                                    <Typography variant="body2" color="text.disabled">Commit History Timeline</Typography>
-                                                    <Typography variant="caption" color="text.disabled">Indexed from commit events</Typography>
-                                                </Box>
-                                            </Card>
-                                        </Grid>
-                                        <Grid item xs={12} sm={6}>
-                                            <Card variant="outlined" sx={{ height: 180, display: 'flex', alignItems: 'center', justifyContent: 'center', bgcolor: 'action.hover' }}>
-                                                <Box sx={{ textAlign: 'center' }}>
-                                                    <BarChartIcon sx={{ fontSize: 40, color: 'text.disabled' }} />
-                                                    <Typography variant="body2" color="text.disabled">Liquidity Add/Remove History</Typography>
-                                                    <Typography variant="caption" color="text.disabled">Indexed from LP events</Typography>
-                                                </Box>
-                                            </Card>
-                                        </Grid>
-                                        <Grid item xs={12} sm={6}>
-                                            <Card variant="outlined" sx={{ height: 180, display: 'flex', alignItems: 'center', justifyContent: 'center', bgcolor: 'action.hover' }}>
-                                                <Box sx={{ textAlign: 'center' }}>
-                                                    <BarChartIcon sx={{ fontSize: 40, color: 'text.disabled' }} />
-                                                    <Typography variant="body2" color="text.disabled">Fee Accrual Over Time</Typography>
-                                                    <Typography variant="caption" color="text.disabled">Indexed from fee collection events</Typography>
-                                                </Box>
-                                            </Card>
-                                        </Grid>
-                                    </Grid>
-                                </CardContent>
-                            </Card>
-                        </Grid>
 
                         {isCreator && (
                             <Grid item xs={12} md={8}>

@@ -4,6 +4,7 @@ import { Grid, Stack, Typography, Tabs, Tab, Box, Card, CardContent, TextField, 
 import ContentCopyIcon from '@mui/icons-material/ContentCopy';
 import { SigningCosmWasmClient } from '@cosmjs/cosmwasm-stargate';
 import PageShell from '../components/universal/PageShell';
+import PoolPickerField from '../components/universal/PoolPickerField';
 import CommitTracker from './CommitTracker';
 import OracleStatusBanner from '../components/universal/OracleStatusBanner';
 import CrossTokenSwapTab from './CrossTokenSwapTab';
@@ -327,7 +328,7 @@ const CommitTab: React.FC<{ client: SigningCosmWasmClient | null; address: strin
             {subTab === 0 && (
                 <Box sx={{ display: 'flex', flexDirection: 'column', gap: 2 }}>
                     <OracleStatusBanner />
-                    <TextField label="Pool Contract Address" value={poolAddress} onChange={(e) => setPoolAddress(e.target.value)} placeholder="bluechip1..." />
+                    <PoolPickerField value={poolAddress} onChange={setPoolAddress} label="Pool" />
                     <TextField label="Amount (bluechip)" value={amount} onChange={(e) => setAmount(e.target.value)} type="number" />
                     <TextField label="Max Spread" value={maxSpread} onChange={(e) => setMaxSpread(e.target.value)} helperText="e.g. 0.005 for 0.5%" />
                     <TextField label="Deadline (minutes)" value={deadline} onChange={(e) => setDeadline(e.target.value)} type="number" />
@@ -338,7 +339,7 @@ const CommitTab: React.FC<{ client: SigningCosmWasmClient | null; address: strin
             )}
             {subTab === 1 && (
                 <Box sx={{ display: 'flex', flexDirection: 'column', gap: 2 }}>
-                    <TextField label="Pool Contract Address" value={poolAddress} onChange={(e) => setPoolAddress(e.target.value)} placeholder="bluechip1..." />
+                    <PoolPickerField value={poolAddress} onChange={setPoolAddress} label="Pool" />
                     {poolAddress && <CommitTracker client={client} contractAddress={poolAddress} />}
                 </Box>
             )}
@@ -435,7 +436,7 @@ const SwapTab: React.FC<{ client: SigningCosmWasmClient | null; address: string 
 
     return (
         <Box sx={{ display: 'flex', flexDirection: 'column', gap: 2 }}>
-            <TextField label="Pool Contract Address" value={poolAddress} onChange={(e) => setPoolAddress(e.target.value)} placeholder="bluechip1..." />
+            <PoolPickerField value={poolAddress} onChange={setPoolAddress} label="Pool" />
             <TextField label="Offer Asset (denom or CW20 address)" value={offerAsset} onChange={(e) => setOfferAsset(e.target.value)} helperText="e.g. ubluechip or a CW20 contract address" />
             <TextField label="Amount" value={amount} onChange={(e) => setAmount(e.target.value)} type="number" />
             <TextField label="Max Spread" value={maxSpread} onChange={(e) => setMaxSpread(e.target.value)} helperText="e.g. 0.005 for 0.5%" />
@@ -603,7 +604,7 @@ const LiquidityTab: React.FC<{ client: SigningCosmWasmClient | null; address: st
 
     return (
         <Box>
-            <TextField fullWidth label="Pool Contract Address" value={poolAddress} onChange={(e) => setPoolAddress(e.target.value)} sx={{ mb: 2 }} />
+            <Box sx={{ mb: 2 }}><PoolPickerField value={poolAddress} onChange={setPoolAddress} label="Pool" /></Box>
             <Tabs value={subTab} onChange={(_, v) => setSubTab(v)} sx={{ mb: 2 }}>
                 <Tab label="Provide Liquidity" />
                 <Tab label="Add to Position" />
@@ -682,7 +683,7 @@ const FeesTab: React.FC<{ client: SigningCosmWasmClient | null; address: string 
 
     return (
         <Box sx={{ display: 'flex', flexDirection: 'column', gap: 2 }}>
-            <TextField label="Pool Contract Address" value={poolAddress} onChange={(e) => setPoolAddress(e.target.value)} />
+            <PoolPickerField value={poolAddress} onChange={setPoolAddress} label="Pool" />
             <TextField label="Position ID" value={positionId} onChange={(e) => setPositionId(e.target.value)} />
             <Button variant="contained" color="success" onClick={handleCollect} disabled={!client}>Collect Fees</Button>
             {status && <Alert severity={status.includes('Success') ? 'success' : 'info'}>{status}</Alert>}

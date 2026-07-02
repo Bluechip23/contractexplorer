@@ -1,10 +1,10 @@
 import React from 'react';
+import { PoolStatusChip } from '../universal/tablePrimitives';
 import {
     Box,
     Button,
     Card,
     CardContent,
-    Chip,
     CircularProgress,
     Grid,
     Stack,
@@ -126,12 +126,7 @@ const PortfolioCreatedPoolsTable: React.FC<PortfolioCreatedPoolsTableProps> = ({
                                         </Link>
                                     </TableCell>
                                     <TableCell>
-                                        <Chip
-                                            label={pool.thresholdReached ? 'Active' : 'Pre-threshold'}
-                                            color={pool.thresholdReached ? 'success' : 'warning'}
-                                            size="small"
-                                            variant="outlined"
-                                        />
+                                        <PoolStatusChip thresholdReached={pool.thresholdReached} />
                                     </TableCell>
                                     <TableCell>{formatMicroAmount(pool.totalLiquidity)}</TableCell>
                                     <TableCell>{formatMicroAmount(pool.totalFeesCollected0)}</TableCell>

@@ -10,6 +10,7 @@ import TableRow from '@mui/material/TableRow';
 import { Typography } from '@mui/material';
 import { Link } from 'react-router-dom';
 import CopyableId from '../universal/CopyableId';
+import { usePagination } from '../universal/tablePrimitives';
 
 interface Column {
     id: 'hash' | 'method' | 'sender' | 'recipient' | 'value' | 'fee';
@@ -54,16 +55,7 @@ interface BlockTransactionsTableProps {
 }
 
 const BlockTransactionsTable: React.FC<BlockTransactionsTableProps> = ({ rows }) => {
-    const [page, setPage] = React.useState(0);
-    const [rowsPerPage, setRowsPerPage] = React.useState(10);
-    const handleChangePage = (event: unknown, newPage: number) => {
-        setPage(newPage);
-    };
-
-    const handleChangeRowsPerPage = (event: React.ChangeEvent<HTMLInputElement>) => {
-        setRowsPerPage(+event.target.value);
-        setPage(0);
-    };
+    const { paginate, paginationProps } = usePagination();
 
     return (
         <Paper sx={{ width: '100%', overflow: 'hidden' }}>
@@ -82,8 +74,7 @@ const BlockTransactionsTable: React.FC<BlockTransactionsTableProps> = ({ rows })
                         </TableRow>
                     </TableHead>
                     <TableBody>
-                        {rows
-                            .slice(page * rowsPerPage, page * rowsPerPage + rowsPerPage)
+                        {paginate(rows)
                             .map((row) => {
                                 return (
                                     <TableRow key={row.hash}>
@@ -111,15 +102,7 @@ const BlockTransactionsTable: React.FC<BlockTransactionsTableProps> = ({ rows })
                     </TableBody>
                 </Table>
             </TableContainer>
-            <TablePagination
-                rowsPerPageOptions={[10, 25, 100]}
-                component="div"
-                count={rows.length}
-                rowsPerPage={rowsPerPage}
-                page={page}
-                onPageChange={handleChangePage}
-                onRowsPerPageChange={handleChangeRowsPerPage}
-            />
+            <TablePagination {...paginationProps(rows.length)} />
         </Paper>
     );
 }

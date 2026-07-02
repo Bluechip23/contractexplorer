@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React from 'react';
 import {
     Divider,
     ListItemIcon,
@@ -6,7 +6,7 @@ import {
     List,
     ListItem,
     Tooltip,
-    Popover,
+    ListSubheader,
 } from '@mui/material';
 import HomeIcon from '@mui/icons-material/Home';
 import GavelIcon from '@mui/icons-material/Gavel';
@@ -20,19 +20,18 @@ import SwapHorizIcon from '@mui/icons-material/SwapHoriz';
 import CodeIcon from '@mui/icons-material/Code';
 import TipsAndUpdatesIcon from '@mui/icons-material/TipsAndUpdates';
 import RocketLaunchIcon from '@mui/icons-material/RocketLaunch';
-import AccountBoxIcon from '@mui/icons-material/AccountBox';
 import LinkIcon from '@mui/icons-material/Link';
 import BrushIcon from '@mui/icons-material/Brush';
-import { Link, useNavigate, useLocation } from 'react-router-dom';
-import { useWallet } from '../context/WalletContext';
+import { Link, useLocation } from 'react-router-dom';
 
 type Item = {
     title: string;
+    subtitle?: string;
     icon: React.ReactNode;
     link: string;
 };
 
-const sidebarItems: Item[] = [
+const explorerItems: Item[] = [
     { title: 'Home', icon: <HomeIcon />, link: '/frontpage' },
     { title: 'Transactions', icon: <ReceiptIcon />, link: '/recenttransactions' },
     { title: 'Blocks', icon: <TokenIcon />, link: '/recentblocks' },
@@ -41,7 +40,25 @@ const sidebarItems: Item[] = [
     { title: 'Creator Tokens', icon: <MonetizationOnIcon />, link: '/toptokens' },
 ];
 
-const newSidebarItems: Item[] = [
+// "My Portfolio" views are always visible so holdings / subscriptions /
+// performance are one click away; the pages themselves show a connect
+// prompt when no wallet is linked yet.
+const portfolioItems: Item[] = [
+    {
+        title: 'My Holdings',
+        subtitle: 'Tokens, commits & positions',
+        icon: <LinkIcon />,
+        link: '/portfolio/chain',
+    },
+    {
+        title: 'Creator Portfolio',
+        subtitle: 'Your pools, tokens & revenue',
+        icon: <BrushIcon />,
+        link: '/portfolio/creator',
+    },
+];
+
+const chainItems: Item[] = [
     { title: 'Creator Economy', icon: <RocketLaunchIcon />, link: '/defi' },
     { title: 'Governance', icon: <HowToVoteIcon />, link: '/governance' },
     { title: 'Staking', icon: <AccountBalanceIcon />, link: '/staking' },
@@ -50,101 +67,43 @@ const newSidebarItems: Item[] = [
     { title: 'Integration Guide', icon: <TipsAndUpdatesIcon />, link: '/integration-guide' },
 ];
 
-const SidebarLink: React.FC<{ item: Item }> = ({ item }) => (
+const SidebarLink: React.FC<{ item: Item; selected?: boolean }> = ({ item, selected = false }) => (
     <Link to={item.link} style={{ color: 'inherit', textDecoration: 'none' }}>
-        <ListItem>
+        <ListItem
+            sx={{
+                bgcolor: selected ? 'action.selected' : 'transparent',
+                borderRadius: 1,
+                '&:hover': { bgcolor: 'action.hover' },
+            }}
+        >
             <Tooltip title={item.title}>
                 <ListItemIcon>{item.icon}</ListItemIcon>
             </Tooltip>
-            <ListItemText primary={item.title} />
+            <ListItemText primary={item.title} secondary={item.subtitle} />
         </ListItem>
     </Link>
 );
 
 const BlockExpSideBar: React.FC = () => {
-    const { address } = useWallet();
-    const navigate = useNavigate();
     const location = useLocation();
-    const isPortfolioActive = location.pathname.startsWith('/portfolio');
-    const [anchorEl, setAnchorEl] = useState<HTMLElement | null>(null);
-
-    const handlePortfolioClick = (event: React.MouseEvent<HTMLElement>) => {
-        setAnchorEl(event.currentTarget);
-    };
-
-    const handleClose = () => {
-        setAnchorEl(null);
-    };
-
-    const handleNavigate = (path: string) => {
-        handleClose();
-        navigate(path);
-    };
 
     return (
         <List component="nav">
-            {sidebarItems.map((item, index) => (
-                <SidebarLink key={index} item={item} />
+            {explorerItems.map((item) => (
+                <SidebarLink key={item.link} item={item} selected={location.pathname === item.link} />
             ))}
+
             <Divider sx={{ my: 1 }} />
+            <ListSubheader component="div" disableSticky sx={{ lineHeight: '32px' }}>
+                My Portfolio
+            </ListSubheader>
+            {portfolioItems.map((item) => (
+                <SidebarLink key={item.link} item={item} selected={location.pathname === item.link} />
+            ))}
 
-            {address && (
-                <>
-                    <ListItem
-                        onClick={handlePortfolioClick}
-                        sx={{
-                            bgcolor: isPortfolioActive ? 'action.selected' : 'transparent',
-                            borderRadius: 1,
-                            cursor: 'pointer',
-                            '&:hover': { bgcolor: 'action.hover' },
-                        }}
-                    >
-                        <Tooltip title="My Portfolio">
-                            <ListItemIcon><AccountBoxIcon /></ListItemIcon>
-                        </Tooltip>
-                        <ListItemText primary="My Portfolio" />
-                    </ListItem>
-
-                    <Popover
-                        open={Boolean(anchorEl)}
-                        anchorEl={anchorEl}
-                        onClose={handleClose}
-                        anchorOrigin={{ vertical: 'center', horizontal: 'right' }}
-                        transformOrigin={{ vertical: 'center', horizontal: 'left' }}
-                        slotProps={{
-                            paper: {
-                                sx: { ml: 1, minWidth: 220, borderRadius: 2 },
-                            },
-                        }}
-                    >
-                        <List dense>
-                            <ListItem
-                                onClick={() => handleNavigate('/portfolio/creator')}
-                                sx={{ cursor: 'pointer', '&:hover': { bgcolor: 'action.hover' } }}
-                            >
-                                <ListItemIcon><BrushIcon fontSize="small" /></ListItemIcon>
-                                <ListItemText
-                                    primary="Creator Portfolio"
-                                    secondary="Your pools, tokens & revenue"
-                                />
-                            </ListItem>
-                            <ListItem
-                                onClick={() => handleNavigate('/portfolio/chain')}
-                                sx={{ cursor: 'pointer', '&:hover': { bgcolor: 'action.hover' } }}
-                            >
-                                <ListItemIcon><LinkIcon fontSize="small" /></ListItemIcon>
-                                <ListItemText
-                                    primary="Chain Portfolio"
-                                    secondary="Commits, positions & fees"
-                                />
-                            </ListItem>
-                        </List>
-                    </Popover>
-                </>
-            )}
-
-            {newSidebarItems.map((item, index) => (
-                <SidebarLink key={`new-${index}`} item={item} />
+            <Divider sx={{ my: 1 }} />
+            {chainItems.map((item) => (
+                <SidebarLink key={item.link} item={item} selected={location.pathname === item.link} />
             ))}
         </List>
     );

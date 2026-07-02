@@ -1,9 +1,9 @@
 import React from 'react';
+import { PoolStatusChip } from '../universal/tablePrimitives';
 import {
     Box,
     Card,
     CardContent,
-    Chip,
     CircularProgress,
     Typography,
 } from '@mui/material';
@@ -72,12 +72,7 @@ const PortfolioCommitmentsTable: React.FC<PortfolioCommitmentsTableProps> = ({ c
                                     </Link>
                                 </TableCell>
                                 <TableCell>
-                                    <Chip
-                                        label={c.pool.thresholdReached ? 'Active' : 'Pre-threshold'}
-                                        color={c.pool.thresholdReached ? 'success' : 'warning'}
-                                        size="small"
-                                        variant="outlined"
-                                    />
+                                    <PoolStatusChip thresholdReached={c.pool.thresholdReached} />
                                 </TableCell>
                                 <TableCell>${formatMicroAmount(c.commit.total_paid_usd)}</TableCell>
                                 <TableCell>{formatMicroAmount(c.commit.total_paid_bluechip)}</TableCell>

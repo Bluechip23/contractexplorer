@@ -11,6 +11,7 @@ import { Typography } from '@mui/material';
 import { Link } from 'react-router-dom';
 import CopyableId from '../universal/CopyableId';
 import { apiEndpoint } from '../universal/IndividualPage.const';
+import { usePagination } from '../universal/tablePrimitives';
 import axios from 'axios';
 import { useEffect, useState } from 'react';
 
@@ -41,8 +42,7 @@ interface RecentTransactionTableProps {
 }
 
 const RecentTransactionsTable: React.FC = () => {
-    const [page, setPage] = useState(0);
-    const [rowsPerPage, setRowsPerPage] = useState(10);
+    const { page, rowsPerPage, paginationProps } = usePagination();
     const [rows, setRows] = useState<RecentTransactionTableProps[]>([]);
     const [loading, setLoading] = useState(true);
 
@@ -86,15 +86,6 @@ const RecentTransactionsTable: React.FC = () => {
         loadTx();
         return () => controller.abort();
     }, [page, rowsPerPage]);
-
-    const handleChangePage = (event: unknown, newPage: number) => {
-        setPage(newPage);
-    };
-
-    const handleChangeRowsPerPage = (event: React.ChangeEvent<HTMLInputElement>) => {
-        setRowsPerPage(+event.target.value);
-        setPage(0);
-    };
 
     if (loading) {
         return (
@@ -144,15 +135,7 @@ const RecentTransactionsTable: React.FC = () => {
                     </TableBody>
                 </Table>
             </TableContainer>
-            <TablePagination
-                rowsPerPageOptions={[10, 25, 100]}
-                component="div"
-                count={rows.length}
-                rowsPerPage={rowsPerPage}
-                page={page}
-                onPageChange={handleChangePage}
-                onRowsPerPageChange={handleChangeRowsPerPage}
-            />
+            <TablePagination {...paginationProps(rows.length)} />
         </Paper>
     );
 }

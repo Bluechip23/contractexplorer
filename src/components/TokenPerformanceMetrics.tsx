@@ -1,4 +1,5 @@
 import React, { useEffect, useState } from 'react';
+import { PoolStatusChip } from './universal/tablePrimitives';
 import {
     Box,
     Card,
@@ -32,7 +33,6 @@ import EmojiEventsIcon from '@mui/icons-material/EmojiEvents';
 import LockIcon from '@mui/icons-material/Lock';
 import RocketLaunchIcon from '@mui/icons-material/RocketLaunch';
 import CheckCircleIcon from '@mui/icons-material/CheckCircle';
-import BarChartIcon from '@mui/icons-material/BarChart';
 import {
     abbreviateAddress,
     CommitterInfo,
@@ -417,12 +417,7 @@ const TokenPerformanceMetrics: React.FC<TokenPerformanceMetricsProps> = ({ pool 
                     <Typography variant="subtitle1" fontWeight="bold">
                         {pool.tokenSymbol} — Performance
                     </Typography>
-                    <Chip
-                        label={pool.thresholdReached ? 'Active' : 'Pre-threshold'}
-                        color={pool.thresholdReached ? 'success' : 'warning'}
-                        size="small"
-                        variant="outlined"
-                    />
+                    <PoolStatusChip thresholdReached={pool.thresholdReached} />
                 </Box>
 
 
@@ -646,35 +641,6 @@ const TokenPerformanceMetrics: React.FC<TokenPerformanceMetricsProps> = ({ pool 
                         <Divider sx={{ my: 1 }} />
                     </>
                 )}
-
-                {/* Indexer Placeholder: Historical Charts */}
-                <SectionHeader icon={<BarChartIcon fontSize="small" color="disabled" />} title="Historical Charts (Requires Indexer)" />
-                <Box sx={{ px: 2, pb: 2 }}>
-                    <Box sx={{ display: 'flex', gap: 1, flexWrap: 'wrap' }}>
-                        {[
-                            'Price History',
-                            'Volume Over Time',
-                            'TVL Over Time',
-                            'Fee Revenue Over Time',
-                        ].map((label) => (
-                            <Chip
-                                key={label}
-                                label={label}
-                                size="small"
-                                variant="outlined"
-                                disabled
-                                sx={{ borderStyle: 'dashed' }}
-                            />
-                        ))}
-                    </Box>
-                    <Typography variant="caption" color="text.disabled" sx={{ mt: 1, display: 'block' }}>
-                        Time-series data will be available once event indexing is enabled.
-                        The contracts now emit enriched events (swap, commit, LP, fee) with block height,
-                        timestamp, prices, and reserves — ready to be captured by an indexer.
-                    </Typography>
-                </Box>
-
-                <Divider sx={{ my: 1 }} />
 
                 <ThresholdSection
                     pool={pool}

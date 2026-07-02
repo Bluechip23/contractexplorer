@@ -1,9 +1,9 @@
 import React, { useState } from 'react';
+import { PoolStatusChip } from '../universal/tablePrimitives';
 import {
     Box,
     Button,
     Checkbox,
-    Chip,
     Collapse,
     Dialog,
     DialogContent,
@@ -58,13 +58,7 @@ const PoolHeader: React.FC<{ pool: PoolSummary }> = ({ pool }) => (
         <Typography variant="body2" color="text.secondary">
             {pool.tokenName}
         </Typography>
-        <Chip
-            label={pool.thresholdReached ? 'Active' : 'Pre-threshold'}
-            color={pool.thresholdReached ? 'success' : 'warning'}
-            size="small"
-            variant="outlined"
-            sx={{ ml: 'auto' }}
-        />
+        <PoolStatusChip thresholdReached={pool.thresholdReached} sx={{ ml: 'auto' }} />
     </Box>
 );
 

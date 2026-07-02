@@ -12,12 +12,12 @@ import {
     Button,
     Checkbox,
     Chip,
-    CircularProgress,
     Typography,
 } from '@mui/material';
 import CompareArrowsIcon from '@mui/icons-material/CompareArrows';
 import { Link } from 'react-router-dom';
 import { factoryAddress } from '../universal/IndividualPage.const';
+import { usePagination, TableStatePaper, PoolStatusChip } from '../universal/tablePrimitives';
 import {
     fetchAllPoolSummaries,
     formatMicroAmount,
@@ -44,8 +44,7 @@ const columns: readonly Column[] = [
 /* ── Creator Token Table ──────────────────────────────────────────── */
 
 const CreatorTokenTable: React.FC = () => {
-    const [page, setPage] = React.useState(0);
-    const [rowsPerPage, setRowsPerPage] = React.useState(10);
+    const { paginate, paginationProps } = usePagination();
     const [rows, setRows] = React.useState<PoolSummary[]>([]);
     const [loading, setLoading] = React.useState(true);
     const [error, setError] = React.useState('');
@@ -82,28 +81,15 @@ const CreatorTokenTable: React.FC = () => {
     };
 
     if (loading) {
-        return (
-            <Paper sx={{ width: '100%', p: 4, textAlign: 'center' }}>
-                <CircularProgress size={28} />
-                <Typography variant="body2" sx={{ mt: 1 }}>Loading tokens from chain...</Typography>
-            </Paper>
-        );
+        return <TableStatePaper kind="loading" message="Loading tokens from chain..." />;
     }
 
     if (error) {
-        return (
-            <Paper sx={{ width: '100%', p: 3 }}>
-                <Typography color="error">{error}</Typography>
-            </Paper>
-        );
+        return <TableStatePaper kind="error" message={error} />;
     }
 
     if (rows.length === 0) {
-        return (
-            <Paper sx={{ width: '100%', p: 3 }}>
-                <Typography color="text.secondary">No creator tokens found on chain.</Typography>
-            </Paper>
-        );
+        return <TableStatePaper kind="empty" message="No creator tokens found on chain." />;
     }
 
     return (
@@ -142,8 +128,7 @@ const CreatorTokenTable: React.FC = () => {
                             </TableRow>
                         </TableHead>
                         <TableBody>
-                            {rows
-                                .slice(page * rowsPerPage, page * rowsPerPage + rowsPerPage)
+                            {paginate(rows)
                                 .map((row) => (
                                     <TableRow key={row.creatorTokenAddress || row.poolAddress} hover>
                                         <TableCell padding="checkbox">
@@ -168,12 +153,7 @@ const CreatorTokenTable: React.FC = () => {
                                             {formatMicroAmount(row.totalLiquidity)}
                                         </TableCell>
                                         <TableCell>
-                                            <Chip
-                                                label={row.thresholdReached ? 'Active' : 'Pre-threshold'}
-                                                color={row.thresholdReached ? 'success' : 'warning'}
-                                                size="small"
-                                                variant="outlined"
-                                            />
+                                            <PoolStatusChip thresholdReached={row.thresholdReached} />
                                         </TableCell>
                                         <TableCell>{row.totalCommitters}</TableCell>
                                     </TableRow>
@@ -181,18 +161,7 @@ const CreatorTokenTable: React.FC = () => {
                         </TableBody>
                     </Table>
                 </TableContainer>
-                <TablePagination
-                    rowsPerPageOptions={[10, 25, 100]}
-                    component="div"
-                    count={rows.length}
-                    rowsPerPage={rowsPerPage}
-                    page={page}
-                    onPageChange={(_, newPage) => setPage(newPage)}
-                    onRowsPerPageChange={(e) => {
-                        setRowsPerPage(+e.target.value);
-                        setPage(0);
-                    }}
-                />
+                <TablePagination {...paginationProps(rows.length)} />
             </Paper>
 
             <PoolCompareModal
