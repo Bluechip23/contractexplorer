@@ -1,11 +1,7 @@
 import React, { useEffect, useState } from 'react'
 import { Avatar, Card, CardContent, CardHeader, Grid, Stack, Typography } from '@mui/material';
-import BlockExpTopBar from '../../navigation/BlockExpTopBar';
-import BlockExpSideBar from '../../navigation/BlockExpSideBar';
-import { Layout } from '../../ui';
 import { useParams } from 'react-router-dom';
-import BlockExplorerNavBar from '../../navigation/BlockExplorerNavBar';
-import GeneralStats from '../../navigation/GeneralStats';
+import PageShell from '../../components/universal/PageShell';
 import ValidatorTable from '../../components/table-pages/ValidatorTable';
 import { apiEndpoint } from '../../components/universal/IndividualPage.const';
 import CopyableId from '../../components/universal/CopyableId';
@@ -44,22 +40,14 @@ const Validator: React.FC = () => {
     }, [id]);
 
     if (!id) {
-        return <Layout NavBar={<BlockExpTopBar />} SideBar={<BlockExpSideBar />} ><Typography>Validator Not Found</Typography></Layout>;
+        return <PageShell width={8} showStats={false}><Grid item xs={12} md={8}><Typography>Validator Not Found</Typography></Grid></PageShell>;
     }
     if (!validator) {
-        return <Layout NavBar={<BlockExpTopBar />} SideBar={<BlockExpSideBar />} ><Typography>Validator Not Found</Typography></Layout>;
+        return <PageShell width={8} showStats={false}><Grid item xs={12} md={8}><Typography>Validator Not Found</Typography></Grid></PageShell>;
     }
     return (
-        <Layout NavBar={<BlockExpTopBar />} SideBar={<BlockExpSideBar />} >
-
-            <Grid container spacing={2} justifyContent='center' alignItems='center'>
-                <Grid item xs={8} sx={{ mt: '10px' }}>
-                    <Stack spacing={2}>
-                        <BlockExplorerNavBar />
-                        <GeneralStats />
-                    </Stack>
-                </Grid>
-                <Grid item xs={8}>
+        <PageShell width={8}>
+                <Grid item xs={12} md={8}>
                     <Card>
                         <CardHeader
                             avatar={
@@ -81,11 +69,10 @@ const Validator: React.FC = () => {
                         </CardContent>
                     </Card>
                 </Grid>
-                <Grid item xs={8}>
+                <Grid item xs={12} md={8}>
                     <ValidatorTable />
                 </Grid>
-            </Grid>
-        </Layout>
+        </PageShell>
     )
 }
 export default Validator;

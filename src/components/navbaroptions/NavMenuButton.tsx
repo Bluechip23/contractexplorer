@@ -1,10 +1,7 @@
 import React from 'react';
-import { Button, MenuItem, Menu, MenuProps, Link } from '@mui/material';
+import { Button, MenuItem, Menu } from '@mui/material';
 import KeyboardArrowDownIcon from '@mui/icons-material/KeyboardArrowDown';
-
-const StyledMenu = (props: MenuProps) => (
-    <Menu {...props} />
-);
+import { Link as RouterLink } from 'react-router-dom';
 
 interface DropdownItem {
     name: string;
@@ -33,13 +30,19 @@ const NavMenuButton: React.FC<NavMenuButtonProps> = ({ label, items }) => {
             <Button onClick={handleClick} endIcon={<KeyboardArrowDownIcon />}>
                 {label}
             </Button>
-            <StyledMenu open={open} onClose={handleClose} anchorEl={anchorEl}>
+            <Menu open={open} onClose={handleClose} anchorEl={anchorEl}>
                 {items.map((item) => (
-                    <MenuItem key={item.link} onClick={handleClose} disableRipple>
-                        <Link href={item.link} underline="hover" color="inherit">{item.name}</Link>
+                    <MenuItem
+                        key={item.link}
+                        component={RouterLink}
+                        to={item.link}
+                        onClick={handleClose}
+                        disableRipple
+                    >
+                        {item.name}
                     </MenuItem>
                 ))}
-            </StyledMenu>
+            </Menu>
         </>
     );
 };

@@ -1,10 +1,9 @@
 import React, { useEffect, useState } from 'react';
-import { Layout } from '../ui';
+import PageShell from '../components/universal/PageShell';
 import {
     Chip,
     Grid,
     Paper,
-    Stack,
     Table,
     TableBody,
     TableCell,
@@ -14,10 +13,6 @@ import {
     TableRow,
     Typography,
 } from '@mui/material';
-import BlockExpTopBar from '../navigation/BlockExpTopBar';
-import BlockExpSideBar from '../navigation/BlockExpSideBar';
-import BlockExplorerNavBar from '../navigation/BlockExplorerNavBar';
-import GeneralStats from '../navigation/GeneralStats';
 import { apiEndpoint } from '../components/universal/IndividualPage.const';
 import { decodeMessageType, formatAmount, formatDenom } from '../utils/txDecoder';
 import axios from 'axios';
@@ -78,14 +73,7 @@ const IBCTransfersPage: React.FC = () => {
     }, []);
 
     return (
-        <Layout NavBar={<BlockExpTopBar />} SideBar={<BlockExpSideBar />}>
-            <Grid container justifyContent="center" alignItems="center" spacing={2}>
-                <Grid item xs={10} sx={{ mt: '10px' }}>
-                    <Stack spacing={2}>
-                        <BlockExplorerNavBar />
-                        <GeneralStats />
-                    </Stack>
-                </Grid>
+        <PageShell>
                 <Grid item xs={10}>
                     <Typography variant="h4" sx={{ mb: 2 }}>
                         IBC Transfers
@@ -167,8 +155,7 @@ const IBCTransfersPage: React.FC = () => {
                         </Paper>
                     )}
                 </Grid>
-            </Grid>
-        </Layout>
+        </PageShell>
     );
 };
 

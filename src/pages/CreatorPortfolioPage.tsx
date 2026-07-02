@@ -1,10 +1,10 @@
 import React, { useEffect, useState } from 'react';
+import { PoolStatusChip } from '../components/universal/tablePrimitives';
 import {
     Box,
     Button,
     Card,
     CardContent,
-    Chip,
     CircularProgress,
     Grid,
     Stack,
@@ -16,18 +16,15 @@ import RocketLaunchIcon from '@mui/icons-material/RocketLaunch';
 import InsightsIcon from '@mui/icons-material/Insights';
 import PaidIcon from '@mui/icons-material/Paid';
 import { Link } from 'react-router-dom';
-import { Layout } from '../ui';
-import BlockExpTopBar from '../navigation/BlockExpTopBar';
-import BlockExpSideBar from '../navigation/BlockExpSideBar';
-import BlockExplorerNavBar from '../navigation/BlockExplorerNavBar';
-import GeneralStats from '../navigation/GeneralStats';
+import PageShell from '../components/universal/PageShell';
 import { useWallet } from '../context/WalletContext';
 import CreatePoolModal from '../components/actions/CreatePoolModal';
 import TokenPerformanceMetrics from '../components/TokenPerformanceMetrics';
 import { NotConnectedView } from '../components/universal/PortfolioShared';
 import StatCard from '../components/universal/StatCard';
 import PoolSelectorDropdown from '../components/portfolio/PoolSelectorDropdown';
-import ComparePoolsModal from '../components/portfolio/ComparePoolsModal';
+import PoolCompareModal from '../components/compare/PoolCompareModal';
+import { POOL_FOCUS_METRICS } from '../components/portfolio/poolMetrics';
 import CreatorEarningsTab from '../components/portfolio/CreatorEarningsTab';
 import NoPoolsView from '../components/portfolio/NoPoolsView';
 import {
@@ -79,11 +76,7 @@ const CreatorPortfolioPage: React.FC = () => {
     const totalLpPositions = createdPools.reduce((s, p) => s + p.totalPositions, 0);
 
     return (
-        <Layout NavBar={<BlockExpTopBar />} SideBar={<BlockExpSideBar />}>
-            <Grid container justifyContent="center" spacing={2}>
-                <Grid item xs={12} md={10} sx={{ mt: '10px' }}>
-                    <Stack spacing={2}><BlockExplorerNavBar /><GeneralStats /></Stack>
-                </Grid>
+        <PageShell>
                 <Grid item xs={12} md={10}>
                     {!address ? <NotConnectedView /> : loading ? (
                         <Box sx={{ textAlign: 'center', py: 6 }}>
@@ -148,12 +141,7 @@ const CreatorPortfolioPage: React.FC = () => {
                                             <Typography variant="h6" fontWeight="bold">
                                                 {selectedPool.tokenSymbol}
                                             </Typography>
-                                            <Chip
-                                                label={selectedPool.thresholdReached ? 'Active' : 'Pre-threshold'}
-                                                color={selectedPool.thresholdReached ? 'success' : 'warning'}
-                                                size="small"
-                                                variant="outlined"
-                                            />
+                                            <PoolStatusChip thresholdReached={selectedPool.thresholdReached} />
                                             <Typography variant="body2" color="text.secondary" sx={{ ml: 'auto' }}>
                                                 <Link to={`/creatorpool/${selectedPool.poolAddress}`} style={{ textDecoration: 'none', color: 'inherit' }}>
                                                     View full details →
@@ -184,10 +172,20 @@ const CreatorPortfolioPage: React.FC = () => {
                                 </Card>
                             )}
 
-                            <ComparePoolsModal
+                            <PoolCompareModal
                                 open={showCompare}
                                 onClose={() => setShowCompare(false)}
                                 pools={createdPools.filter((p) => comparedAddresses.has(p.poolAddress))}
+                                metrics={POOL_FOCUS_METRICS}
+                                summaryMetrics={[
+                                    { key: 'totalLiquidity', label: 'TVL' },
+                                    { key: 'totalFeesCollected', label: 'Total Fees' },
+                                    { key: 'totalCommitters', label: 'Committers' },
+                                    { key: 'tokenPrice', label: 'Price' },
+                                    { key: 'marketCap', label: 'Market Cap' },
+                                ]}
+                                showPerformance
+                                maxWidth="xl"
                             />
 
                             <CreatePoolModal
@@ -198,8 +196,7 @@ const CreatorPortfolioPage: React.FC = () => {
                         </Stack>
                     )}
                 </Grid>
-            </Grid>
-        </Layout>
+        </PageShell>
     );
 };
 

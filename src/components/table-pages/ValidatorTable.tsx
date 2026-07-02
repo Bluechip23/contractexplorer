@@ -12,6 +12,7 @@ import CopyableId from '../universal/CopyableId';
 import { useEffect, useState } from 'react';
 import axios from 'axios';
 import { apiEndpoint } from '../universal/IndividualPage.const';
+import { usePagination } from '../universal/tablePrimitives';
 
 interface Column {
     id: 'validator' | 'commision' | 'maxCommision' | 'totalStaked' | 'delegated';
@@ -49,8 +50,7 @@ interface ValidatorRow {
 }
 
 const ValidatorTable: React.FC = () => {
-    const [page, setPage] = useState(0);
-    const [rowsPerPage, setRowsPerPage] = useState(10);
+    const { paginate, paginationProps } = usePagination();
     const [rows, setRows] = useState<ValidatorRow[]>([]);
     const [loading, setLoading] = useState(true);
 
@@ -79,15 +79,6 @@ const ValidatorTable: React.FC = () => {
         topValidator();
     }, []);
 
-    const handleChangePage = (event: unknown, newPage: number) => {
-        setPage(newPage);
-    };
-
-    const handleChangeRowsPerPage = (event: React.ChangeEvent<HTMLInputElement>) => {
-        setRowsPerPage(+event.target.value);
-        setPage(0);
-    };
-
     return (
         <Paper sx={{ width: '100%', overflow: 'hidden' }}>
             <TableContainer sx={{ maxHeight: 440, padding: '15px' }}>
@@ -104,8 +95,7 @@ const ValidatorTable: React.FC = () => {
                         </TableRow>
                     </TableHead>
                     <TableBody>
-                        {rows
-                            .slice(page * rowsPerPage, page * rowsPerPage + rowsPerPage)
+                        {paginate(rows)
                             .map((row) => (
                                 <TableRow key={row.valId}>
                                     <TableCell>
@@ -128,15 +118,7 @@ const ValidatorTable: React.FC = () => {
                     </TableBody>
                 </Table>
             </TableContainer>
-            <TablePagination
-                rowsPerPageOptions={[10, 25, 100]}
-                component="div"
-                count={rows.length}
-                rowsPerPage={rowsPerPage}
-                page={page}
-                onPageChange={handleChangePage}
-                onRowsPerPageChange={handleChangeRowsPerPage}
-            />
+            <TablePagination {...paginationProps(rows.length)} />
         </Paper>
     );
 }

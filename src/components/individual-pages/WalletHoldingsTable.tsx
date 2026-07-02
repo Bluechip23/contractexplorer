@@ -9,6 +9,7 @@ import TablePagination from '@mui/material/TablePagination';
 import TableRow from '@mui/material/TableRow';
 import { Typography } from '@mui/material';
 import { Link } from 'react-router-dom';
+import { usePagination } from '../universal/tablePrimitives';
 
 
 interface Column {
@@ -33,17 +34,7 @@ interface WalletHoldingProps {
 }
 
 const WalletsHoldingsTable: React.FC<WalletHoldingProps> = ({walletHoldings}) => {
-    const [page, setPage] = React.useState(0);
-    const [rowsPerPage, setRowsPerPage] = React.useState(10);
-
-    const handleChangePage = (event: unknown, newPage: number) => {
-        setPage(newPage);
-    };
-
-    const handleChangeRowsPerPage = (event: React.ChangeEvent<HTMLInputElement>) => {
-        setRowsPerPage(+event.target.value);
-        setPage(0);
-    };
+    const { paginate, paginationProps } = usePagination();
 
     return (
         <Paper sx={{ width: '100%', overflow: 'hidden' }}>
@@ -62,8 +53,7 @@ const WalletsHoldingsTable: React.FC<WalletHoldingProps> = ({walletHoldings}) =>
                         </TableRow>
                     </TableHead>
                     <TableBody>
-                        {walletHoldings
-                            .slice(page * rowsPerPage, page * rowsPerPage + rowsPerPage)
+                        {paginate(walletHoldings)
                             .map((row) => {
                                 return (
                                     <TableRow>
@@ -82,15 +72,7 @@ const WalletsHoldingsTable: React.FC<WalletHoldingProps> = ({walletHoldings}) =>
                     </TableBody>
                 </Table>
             </TableContainer>
-            <TablePagination
-                rowsPerPageOptions={[10, 25, 100]}
-                component="div"
-                count={walletHoldings.length}
-                rowsPerPage={rowsPerPage}
-                page={page}
-                onPageChange={handleChangePage}
-                onRowsPerPageChange={handleChangeRowsPerPage}
-            />
+            <TablePagination {...paginationProps(walletHoldings.length)} />
         </Paper>
     );
 }

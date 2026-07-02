@@ -36,13 +36,6 @@ export interface VolumePoint {
     sell_volume_bluechip: number;
 }
 
-export interface CommitPoint {
-    t: number;
-    commits: number;
-    usd: number;               // micro-USD, float aggregate
-    unique_committers: number;
-}
-
 export interface IndexedTrade {
     txhash: string;
     height: number;
@@ -103,10 +96,6 @@ export function fetchPriceSeries(pool: string, bucket: number, from: number, to:
 
 export function fetchVolumeSeries(pool: string, bucket: number, from: number, to: number): Promise<VolumePoint[] | null> {
     return fetchJson<VolumePoint[]>(`/pools/${pool}/volume-series?bucket=${bucket}&from=${from}&to=${to}`);
-}
-
-export function fetchCommitSeries(pool: string, bucket: number, from: number, to: number): Promise<CommitPoint[] | null> {
-    return fetchJson<CommitPoint[]>(`/pools/${pool}/commit-series?bucket=${bucket}&from=${from}&to=${to}`);
 }
 
 export function fetchRecentTrades(pool: string, limit = 25): Promise<IndexedTrade[] | null> {

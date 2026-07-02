@@ -8,11 +8,7 @@ import {
     Tabs,
     Typography,
 } from '@mui/material';
-import { Layout } from '../ui';
-import BlockExpTopBar from '../navigation/BlockExpTopBar';
-import BlockExpSideBar from '../navigation/BlockExpSideBar';
-import BlockExplorerNavBar from '../navigation/BlockExplorerNavBar';
-import GeneralStats from '../navigation/GeneralStats';
+import PageShell from '../components/universal/PageShell';
 import { useWallet } from '../context/WalletContext';
 import { TabPanel, NotConnectedView } from '../components/universal/PortfolioShared';
 import StatCard from '../components/universal/StatCard';
@@ -93,11 +89,7 @@ const ChainPortfolioPage: React.FC = () => {
     const lastFeeCollection = positions.reduce((latest, p) => { const ts = p.position.last_fee_collection || 0; return ts > latest ? ts : latest; }, 0);
 
     return (
-        <Layout NavBar={<BlockExpTopBar />} SideBar={<BlockExpSideBar />}>
-            <Grid container justifyContent="center" spacing={2}>
-                <Grid item xs={12} md={10} sx={{ mt: '10px' }}>
-                    <Stack spacing={2}><BlockExplorerNavBar /><GeneralStats /></Stack>
-                </Grid>
+        <PageShell>
                 <Grid item xs={12} md={10}>
                     {!address ? <NotConnectedView /> : (
                         <Stack spacing={2}>
@@ -140,8 +132,7 @@ const ChainPortfolioPage: React.FC = () => {
                         </Stack>
                     )}
                 </Grid>
-            </Grid>
-        </Layout>
+        </PageShell>
     );
 };
 

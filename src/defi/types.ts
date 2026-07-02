@@ -1,14 +1,5 @@
-import { SigningCosmWasmClient } from '@cosmjs/cosmwasm-stargate';
-import { Coin } from '@cosmjs/stargate';
-
 export const NATIVE_DENOM = 'ubluechip';
 export const COIN_DECIMALS = 6;
-
-export interface WalletConnectProps {
-    setClient: (client: SigningCosmWasmClient | null) => void;
-    setAddress: (address: string) => void;
-    setBalance: (balance: Coin) => void;
-}
 
 export interface ChainConfig {
     chainId: string;

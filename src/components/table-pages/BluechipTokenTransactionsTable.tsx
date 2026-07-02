@@ -10,6 +10,7 @@ import TableRow from '@mui/material/TableRow';
 import { Typography } from '@mui/material';
 import { Link } from 'react-router-dom';
 import { denom, apiEndpoint } from '../universal/IndividualPage.const';
+import { usePagination } from '../universal/tablePrimitives';
 import axios from 'axios';
 
 interface Column {
@@ -60,17 +61,7 @@ interface Data {
 
 const BlueChipTokenTransactionsTable: React.FC = () => {
     const [rows, setRows] = useState<Data[]>([]); // State for storing rows
-    const [page, setPage] = useState(0);
-    const [rowsPerPage, setRowsPerPage] = useState(10);
-
-    const handleChangePage = (event: unknown, newPage: number) => {
-        setPage(newPage);
-    };
-
-    const handleChangeRowsPerPage = (event: React.ChangeEvent<HTMLInputElement>) => {
-        setRowsPerPage(+event.target.value);
-        setPage(0);
-    };
+    const { paginate, paginationProps } = usePagination();
 
     useEffect(() => {
         const MAX_PAGES = 3;
@@ -141,8 +132,7 @@ const BlueChipTokenTransactionsTable: React.FC = () => {
                         </TableRow>
                     </TableHead>
                     <TableBody>
-                        {rows
-                            .slice(page * rowsPerPage, page * rowsPerPage + rowsPerPage)
+                        {paginate(rows)
                             .map((row, index) => {
                                 return (
                                     <TableRow key={row.hash || index}>
@@ -170,15 +160,7 @@ const BlueChipTokenTransactionsTable: React.FC = () => {
                     </TableBody>
                 </Table>
             </TableContainer>
-            <TablePagination
-                rowsPerPageOptions={[10, 25, 100]}
-                component="div"
-                count={rows.length}
-                rowsPerPage={rowsPerPage}
-                page={page}
-                onPageChange={handleChangePage}
-                onRowsPerPageChange={handleChangeRowsPerPage}
-            />
+            <TablePagination {...paginationProps(rows.length)} />
         </Paper>
     );
 };

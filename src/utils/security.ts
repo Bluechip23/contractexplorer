@@ -7,7 +7,7 @@
 
 import type { SigningCosmWasmClient } from '@cosmjs/cosmwasm-stargate';
 import type { Coin } from '@cosmjs/stargate';
-import { safeBigInt } from './bigintMath';
+import { compareMicro } from './bigintMath';
 
 // SECURITY: The only chain this frontend is allowed to broadcast against.
 // Any other chain ID reported by the wallet must block the transaction.
@@ -80,7 +80,7 @@ export function validateTokenAmount(
     }
     if (maxBalanceMicro !== undefined) {
         try {
-            if (bigIntCompare(microStr, maxBalanceMicro) > 0) {
+            if (compareMicro(microStr, maxBalanceMicro) > 0) {
                 return {
                     ok: false,
                     error: 'Amount exceeds your wallet balance.',
@@ -91,16 +91,6 @@ export function validateTokenAmount(
         }
     }
     return { ok: true, micro: microStr };
-}
-
-// SECURITY: Big-integer string comparison avoids Number precision loss for
-// high-value denoms that exceed 2^53.
-function bigIntCompare(a: string, b: string): number {
-    const aa = BigInt(a);
-    const bb = BigInt(b);
-    if (aa < bb) return -1;
-    if (aa > bb) return 1;
-    return 0;
 }
 
 // ============================================================================
@@ -235,31 +225,6 @@ export function validateSlippage(rawPct: string | number): SlippageValidationRes
 }
 
 // ============================================================================
-// Price shift re-confirmation
-// ============================================================================
-
-// SECURITY: Compares an expected output amount captured at simulation time
-// with the latest quoted output, and reports whether the difference falls
-// within the user's slippage tolerance. Callers must show a re-confirmation
-// modal (not silently update) when this returns `shifted: true`.
-export function hasPriceShiftedBeyondTolerance(
-    expectedMicro: string,
-    latestMicro: string,
-    slippagePct: number,
-): { shifted: boolean; deltaPct: number } {
-    const expected = safeBigInt(expectedMicro);
-    const latest = safeBigInt(latestMicro);
-    if (expected <= 0n) {
-        return { shifted: true, deltaPct: 100 };
-    }
-    // Integer math preserves precision for amounts above 2^53. Scale by 10_000
-    // to retain 2 decimals of percentage precision before Number conversion.
-    const diff = latest > expected ? latest - expected : expected - latest;
-    const deltaPct = Number((diff * 10_000n) / expected) / 100;
-    return { shifted: deltaPct > slippagePct, deltaPct };
-}
-
-// ============================================================================
 // Chain ID assertion
 // ============================================================================
 
@@ -341,15 +306,6 @@ export function sanitizeOnChainString(input: unknown, maxLen: number = 128): str
     return cleaned.slice(0, maxLen) + '…';
 }
 
-// SECURITY: Safely encode an arbitrary on-chain identifier (pool address,
-// CW20 contract, denom) for use as a URL path segment. This prevents path
-// traversal, open-redirect, and query-parameter injection that could occur
-// if an attacker-controlled denom contained characters like `../`, `?`, or `#`.
-export function encodeUrlParam(value: string): string {
-    if (typeof value !== 'string') return '';
-    return encodeURIComponent(value);
-}
-
 // ============================================================================
 // Human-readable summary helpers
 // ============================================================================
@@ -378,17 +334,6 @@ export function formatLiquidityDepositSummary(args: {
 }): string {
     const { amount0, symbol0, amount1, symbol1, lpShares } = args;
     return `You are depositing ${amount0} ${sanitizeOnChainString(symbol0, 16)} + ${amount1} ${sanitizeOnChainString(symbol1, 16)} and will receive approximately ${lpShares} LP shares.`;
-}
-
-export function formatLiquidityRemoveSummary(args: {
-    lpShares: string;
-    amount0: string;
-    symbol0: string;
-    amount1: string;
-    symbol1: string;
-}): string {
-    const { lpShares, amount0, symbol0, amount1, symbol1 } = args;
-    return `You are burning ${lpShares} LP shares and will receive approximately ${amount0} ${sanitizeOnChainString(symbol0, 16)} + ${amount1} ${sanitizeOnChainString(symbol1, 16)}.`;
 }
 
 // ============================================================================

@@ -3,11 +3,8 @@ import { useLocation } from 'react-router-dom';
 import { Grid, Stack, Typography, Tabs, Tab, Box, Card, CardContent, TextField, Button, Alert, IconButton, Tooltip } from '@mui/material';
 import ContentCopyIcon from '@mui/icons-material/ContentCopy';
 import { SigningCosmWasmClient } from '@cosmjs/cosmwasm-stargate';
-import { Layout } from '../ui';
-import BlockExpTopBar from '../navigation/BlockExpTopBar';
-import BlockExpSideBar from '../navigation/BlockExpSideBar';
-import BlockExplorerNavBar from '../navigation/BlockExplorerNavBar';
-import GeneralStats from '../navigation/GeneralStats';
+import PageShell from '../components/universal/PageShell';
+import PoolPickerField from '../components/universal/PoolPickerField';
 import CommitTracker from './CommitTracker';
 import OracleStatusBanner from '../components/universal/OracleStatusBanner';
 import CrossTokenSwapTab from './CrossTokenSwapTab';
@@ -21,7 +18,10 @@ import {
     assertWalletOnExpectedChain,
     humanizeContractError,
 } from '../utils/security';
-import { compareMicro, safeBigInt, formatMicroAmount } from '../utils/bigintMath';
+import { formatMicroAmount } from '../utils/bigintMath';
+import { isFullyCommitted } from '../utils/contractQueries';
+import { deadlineNs, timeAgo } from '../utils/datetime';
+import { ensureCw20Allowance, minAmountAfterSlippage, resolvePoolAssets } from '../utils/poolActions';
 
 // Sentinel the factory's commit-pool create handler requires in the
 // CreatorToken slot of pool_token_info. The factory mints the real CW20
@@ -298,34 +298,14 @@ const CommitTab: React.FC<{ client: SigningCosmWasmClient | null; address: strin
             const micro = amtCheck.micro!;
 
             const thresholdStatus = await client.queryContractSmart(poolAddress, { is_fully_commited: {} });
-            // CommitStatus is now a tagged enum: { in_progress: {...} } |
-            // "fully_committed". Accept both the legacy string form and the
-            // new object form.
-            const isThresholdCrossed = thresholdStatus === 'fully_committed'
-                || (typeof thresholdStatus === 'object' && thresholdStatus !== null && 'fully_committed' in thresholdStatus);
-            const deadlineNs = deadline && parseFloat(deadline) > 0
-                ? ((Date.now() + parseFloat(deadline) * 60000) * 1000000).toString()
-                : null;
-
-            // Pool denom is configurable per-pool; read it from pair {} rather
-            // than assuming NATIVE_DENOM. The Pair query returns PoolDetails,
-            // whose asset list field is `asset_infos`. (`pool_token_info` is
-            // the *input* field on factory create messages and the factory's
-            // pool_by_address response — kept as a defensive fallback only.)
-            let bluechipDenom = NATIVE_DENOM;
-            try {
-                const pairInfo = await client.queryContractSmart(poolAddress, { pair: {} });
-                const infos: any[] = pairInfo?.asset_infos ?? pairInfo?.pool_token_info ?? [];
-                const found = infos.find((i) => i?.bluechip?.denom)?.bluechip?.denom;
-                if (typeof found === 'string' && found.length > 0) bluechipDenom = found;
-            } catch {
-                // Fall back to NATIVE_DENOM.
-            }
+            const isThresholdCrossed = isFullyCommitted(thresholdStatus);
+            const txDeadline = deadlineNs(deadline);
+            const { bluechipDenom } = await resolvePoolAssets(client, poolAddress);
 
             const msg = {
                 commit: {
                     asset: { info: { bluechip: { denom: bluechipDenom } }, amount: micro },
-                    transaction_deadline: deadlineNs,
+                    transaction_deadline: txDeadline,
                     belief_price: null,
                     max_spread: (isThresholdCrossed && maxSpread) ? maxSpread : null,
                 },
@@ -348,7 +328,7 @@ const CommitTab: React.FC<{ client: SigningCosmWasmClient | null; address: strin
             {subTab === 0 && (
                 <Box sx={{ display: 'flex', flexDirection: 'column', gap: 2 }}>
                     <OracleStatusBanner />
-                    <TextField label="Pool Contract Address" value={poolAddress} onChange={(e) => setPoolAddress(e.target.value)} placeholder="bluechip1..." />
+                    <PoolPickerField value={poolAddress} onChange={setPoolAddress} label="Pool" />
                     <TextField label="Amount (bluechip)" value={amount} onChange={(e) => setAmount(e.target.value)} type="number" />
                     <TextField label="Max Spread" value={maxSpread} onChange={(e) => setMaxSpread(e.target.value)} helperText="e.g. 0.005 for 0.5%" />
                     <TextField label="Deadline (minutes)" value={deadline} onChange={(e) => setDeadline(e.target.value)} type="number" />
@@ -359,7 +339,7 @@ const CommitTab: React.FC<{ client: SigningCosmWasmClient | null; address: strin
             )}
             {subTab === 1 && (
                 <Box sx={{ display: 'flex', flexDirection: 'column', gap: 2 }}>
-                    <TextField label="Pool Contract Address" value={poolAddress} onChange={(e) => setPoolAddress(e.target.value)} placeholder="bluechip1..." />
+                    <PoolPickerField value={poolAddress} onChange={setPoolAddress} label="Pool" />
                     {poolAddress && <CommitTracker client={client} contractAddress={poolAddress} />}
                 </Box>
             )}
@@ -406,9 +386,7 @@ const SwapTab: React.FC<{ client: SigningCosmWasmClient | null; address: string 
             setStatus('Swapping...');
             setTxHash('');
             const micro = amtCheck.micro!;
-            const deadlineNs = deadline && parseFloat(deadline) > 0
-                ? ((Date.now() + parseFloat(deadline) * 60000) * 1000000).toString()
-                : null;
+            const txDeadline = deadlineNs(deadline);
 
             const isContract = offerAsset.length > 20 && (offerAsset.startsWith('bluechip') || offerAsset.startsWith('cosmos'));
 
@@ -421,7 +399,7 @@ const SwapTab: React.FC<{ client: SigningCosmWasmClient | null; address: string 
                         max_spread: maxSpread || null,
                         allow_high_max_spread: allowHighSpread ? true : null,
                         to: null,
-                        transaction_deadline: deadlineNs,
+                        transaction_deadline: txDeadline,
                     },
                 };
                 const result = await client.execute(
@@ -443,7 +421,7 @@ const SwapTab: React.FC<{ client: SigningCosmWasmClient | null; address: string 
                         max_spread: maxSpread || null,
                         allow_high_max_spread: allowHighSpread ? true : null,
                         to: null,
-                        transaction_deadline: deadlineNs,
+                        transaction_deadline: txDeadline,
                     },
                 };
                 const msg = { send: { contract: poolAddress, amount: micro, msg: btoa(JSON.stringify(hookMsg)) } };
@@ -458,7 +436,7 @@ const SwapTab: React.FC<{ client: SigningCosmWasmClient | null; address: string 
 
     return (
         <Box sx={{ display: 'flex', flexDirection: 'column', gap: 2 }}>
-            <TextField label="Pool Contract Address" value={poolAddress} onChange={(e) => setPoolAddress(e.target.value)} placeholder="bluechip1..." />
+            <PoolPickerField value={poolAddress} onChange={setPoolAddress} label="Pool" />
             <TextField label="Offer Asset (denom or CW20 address)" value={offerAsset} onChange={(e) => setOfferAsset(e.target.value)} helperText="e.g. ubluechip or a CW20 contract address" />
             <TextField label="Amount" value={amount} onChange={(e) => setAmount(e.target.value)} type="number" />
             <TextField label="Max Spread" value={maxSpread} onChange={(e) => setMaxSpread(e.target.value)} helperText="e.g. 0.005 for 0.5%" />
@@ -494,37 +472,6 @@ const LiquidityTab: React.FC<{ client: SigningCosmWasmClient | null; address: st
     const [status, setStatus] = useState('');
     const [txHash, setTxHash] = useState('');
 
-    // Resolves the pool's CW20 ("creator") token + the bluechip denom
-    // from a pair query. Works for both creator-pool and standard-pool:
-    // both return PoolDetails whose asset list field is `asset_infos`.
-    // (`pool_token_info` belongs to factory create messages / the factory's
-    // pool_by_address response — kept as a defensive fallback only.)
-    const resolvePoolAssets = async () => {
-        const pairInfo = await client!.queryContractSmart(poolAddress, { pair: {} });
-        const infos: any[] = pairInfo?.asset_infos ?? pairInfo?.pool_token_info ?? [];
-        let tokenAddress: string | null = null;
-        let bluechipDenom = NATIVE_DENOM;
-        for (const asset of infos) {
-            if (asset?.creator_token) tokenAddress = asset.creator_token.contract_addr;
-            if (asset?.bluechip) bluechipDenom = asset.bluechip.denom;
-        }
-        return { tokenAddress, bluechipDenom };
-    };
-
-    const ensureCw20Allowance = async (tokenAddress: string, requiredMicro: string) => {
-        const allowance = await client!.queryContractSmart(tokenAddress, { allowance: { owner: address, spender: poolAddress } });
-        if (compareMicro(allowance.allowance, requiredMicro) < 0) {
-            await client!.execute(
-                address,
-                tokenAddress,
-                { increase_allowance: { spender: poolAddress, amount: requiredMicro } },
-                { amount: [], gas: '200000' },
-                'Approve',
-                [],
-            );
-        }
-    };
-
     const handleDeposit = async () => {
         if (!client || !address || !poolAddress) { setStatus('Connect wallet and set pool address'); return; }
 
@@ -548,19 +495,11 @@ const LiquidityTab: React.FC<{ client: SigningCosmWasmClient | null; address: st
             const a0 = amt0Check.micro!;
             const a1 = amt1Check.micro!;
 
-            const { tokenAddress, bluechipDenom } = await resolvePoolAssets();
+            const { tokenAddress, bluechipDenom } = await resolvePoolAssets(client, poolAddress);
             if (!tokenAddress) { setStatus('Error: No creator token found in pool'); return; }
 
             setStatus('Approving tokens...');
-            await ensureCw20Allowance(tokenAddress, a1);
-
-            // SECURITY: slippage math done on BigInt micro-units to avoid
-            // floating-point drift for large deposits.
-            const slippageBps = BigInt(Math.round(parseFloat(slippage || '0') * 100));
-            const scale = 10_000n;
-            const minA0 = (safeBigInt(a0) * (scale - slippageBps)) / scale;
-            const minA1 = (safeBigInt(a1) * (scale - slippageBps)) / scale;
-            const deadlineNs = deadline ? ((Date.now() + parseFloat(deadline) * 60000) * 1000000).toString() : null;
+            await ensureCw20Allowance(client, address, tokenAddress, poolAddress, a1);
 
             // DepositLiquidity (matches both creator-pool and standard-pool):
             // amount0/amount1 + optional min_amount0/min_amount1 + optional
@@ -570,9 +509,9 @@ const LiquidityTab: React.FC<{ client: SigningCosmWasmClient | null; address: st
                 deposit_liquidity: {
                     amount0: a0,
                     amount1: a1,
-                    min_amount0: minA0.toString(),
-                    min_amount1: minA1.toString(),
-                    transaction_deadline: deadlineNs,
+                    min_amount0: minAmountAfterSlippage(a0, slippage),
+                    min_amount1: minAmountAfterSlippage(a1, slippage),
+                    transaction_deadline: deadlineNs(deadline),
                 },
             };
 
@@ -606,26 +545,20 @@ const LiquidityTab: React.FC<{ client: SigningCosmWasmClient | null; address: st
             const a0 = amt0Check.micro!;
             const a1 = amt1Check.micro!;
 
-            const { tokenAddress, bluechipDenom } = await resolvePoolAssets();
+            const { tokenAddress, bluechipDenom } = await resolvePoolAssets(client, poolAddress);
             if (!tokenAddress) { setStatus('Error: No creator token found in pool'); return; }
 
             setStatus('Approving tokens...');
-            await ensureCw20Allowance(tokenAddress, a1);
-
-            const slippageBps = BigInt(Math.round(parseFloat(slippage || '0') * 100));
-            const scale = 10_000n;
-            const minA0 = (safeBigInt(a0) * (scale - slippageBps)) / scale;
-            const minA1 = (safeBigInt(a1) * (scale - slippageBps)) / scale;
-            const deadlineNs = deadline ? ((Date.now() + parseFloat(deadline) * 60000) * 1000000).toString() : null;
+            await ensureCw20Allowance(client, address, tokenAddress, poolAddress, a1);
 
             const msg = {
                 add_to_position: {
                     position_id: positionId,
                     amount0: a0,
                     amount1: a1,
-                    min_amount0: minA0.toString(),
-                    min_amount1: minA1.toString(),
-                    transaction_deadline: deadlineNs,
+                    min_amount0: minAmountAfterSlippage(a0, slippage),
+                    min_amount1: minAmountAfterSlippage(a1, slippage),
+                    transaction_deadline: deadlineNs(deadline),
                 },
             };
 
@@ -652,15 +585,15 @@ const LiquidityTab: React.FC<{ client: SigningCosmWasmClient | null; address: st
             setStatus('Removing...');
             setTxHash('');
             const deviationBps = slippage ? Math.floor(parseFloat(slippage) * 100) : null;
-            const deadlineNs = deadline ? ((Date.now() + parseFloat(deadline) * 60000) * 1000000).toString() : null;
+            const txDeadline = deadlineNs(deadline);
 
             let msg: any;
             if (removeMode === 'all') {
-                msg = { remove_all_liquidity: { position_id: positionId, min_amount0: null, min_amount1: null, max_ratio_deviation_bps: deviationBps, transaction_deadline: deadlineNs } };
+                msg = { remove_all_liquidity: { position_id: positionId, min_amount0: null, min_amount1: null, max_ratio_deviation_bps: deviationBps, transaction_deadline: txDeadline } };
             } else if (removeMode === 'percent') {
-                msg = { remove_partial_liquidity_by_percent: { position_id: positionId, percentage: parseInt(removePercent, 10) || 0, min_amount0: null, min_amount1: null, max_ratio_deviation_bps: deviationBps, transaction_deadline: deadlineNs } };
+                msg = { remove_partial_liquidity_by_percent: { position_id: positionId, percentage: parseInt(removePercent, 10) || 0, min_amount0: null, min_amount1: null, max_ratio_deviation_bps: deviationBps, transaction_deadline: txDeadline } };
             } else {
-                msg = { remove_partial_liquidity: { position_id: positionId, liquidity_to_remove: Math.floor(parseFloat(removeAmount)).toString(), min_amount0: null, min_amount1: null, max_ratio_deviation_bps: deviationBps, transaction_deadline: deadlineNs } };
+                msg = { remove_partial_liquidity: { position_id: positionId, liquidity_to_remove: Math.floor(parseFloat(removeAmount)).toString(), min_amount0: null, min_amount1: null, max_ratio_deviation_bps: deviationBps, transaction_deadline: txDeadline } };
             }
 
             const result = await client.execute(address, poolAddress, msg, { amount: [], gas: '500000' }, 'Remove Liquidity');
@@ -671,7 +604,7 @@ const LiquidityTab: React.FC<{ client: SigningCosmWasmClient | null; address: st
 
     return (
         <Box>
-            <TextField fullWidth label="Pool Contract Address" value={poolAddress} onChange={(e) => setPoolAddress(e.target.value)} sx={{ mb: 2 }} />
+            <Box sx={{ mb: 2 }}><PoolPickerField value={poolAddress} onChange={setPoolAddress} label="Pool" /></Box>
             <Tabs value={subTab} onChange={(_, v) => setSubTab(v)} sx={{ mb: 2 }}>
                 <Tab label="Provide Liquidity" />
                 <Tab label="Add to Position" />
@@ -750,7 +683,7 @@ const FeesTab: React.FC<{ client: SigningCosmWasmClient | null; address: string 
 
     return (
         <Box sx={{ display: 'flex', flexDirection: 'column', gap: 2 }}>
-            <TextField label="Pool Contract Address" value={poolAddress} onChange={(e) => setPoolAddress(e.target.value)} />
+            <PoolPickerField value={poolAddress} onChange={setPoolAddress} label="Pool" />
             <TextField label="Position ID" value={positionId} onChange={(e) => setPositionId(e.target.value)} />
             <Button variant="contained" color="success" onClick={handleCollect} disabled={!client}>Collect Fees</Button>
             {status && <Alert severity={status.includes('Success') ? 'success' : 'info'}>{status}</Alert>}
@@ -778,15 +711,7 @@ const DefiPage: React.FC = () => {
     }, [location.search]);
 
     return (
-        <Layout NavBar={<BlockExpTopBar />} SideBar={<BlockExpSideBar />}>
-            <Grid container justifyContent="center" spacing={2}>
-                <Grid item xs={12} md={10}>
-                    <Stack direction="row" alignItems="center" justifyContent="space-between" sx={{ mb: 1 }}>
-                        <BlockExplorerNavBar />
-                    </Stack>
-                    <GeneralStats />
-                </Grid>
-
+        <PageShell>
                 <Grid item xs={12} md={10}>
                     <Card>
                         <CardContent>
@@ -835,8 +760,7 @@ const DefiPage: React.FC = () => {
                         </CardContent>
                     </Card>
                 </Grid>
-            </Grid>
-        </Layout>
+        </PageShell>
     );
 };
 

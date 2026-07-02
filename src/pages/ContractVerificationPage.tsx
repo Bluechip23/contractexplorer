@@ -1,5 +1,5 @@
 import React, { useState } from 'react';
-import { Layout } from '../ui';
+import PageShell from '../components/universal/PageShell';
 import {
     Alert,
     Box,
@@ -14,10 +14,6 @@ import {
     TextField,
     Typography,
 } from '@mui/material';
-import BlockExpTopBar from '../navigation/BlockExpTopBar';
-import BlockExpSideBar from '../navigation/BlockExpSideBar';
-import BlockExplorerNavBar from '../navigation/BlockExplorerNavBar';
-import GeneralStats from '../navigation/GeneralStats';
 import { apiEndpoint } from '../components/universal/IndividualPage.const';
 import axios from 'axios';
 import { CardSkeleton } from '../components/universal/LoadingSkeleton';
@@ -92,14 +88,7 @@ const ContractVerificationPage: React.FC = () => {
     };
 
     return (
-        <Layout NavBar={<BlockExpTopBar />} SideBar={<BlockExpSideBar />}>
-            <Grid container justifyContent="center" alignItems="center" spacing={2}>
-                <Grid item xs={10} sx={{ mt: '10px' }}>
-                    <Stack spacing={2}>
-                        <BlockExplorerNavBar />
-                        <GeneralStats />
-                    </Stack>
-                </Grid>
+        <PageShell>
                 <Grid item xs={10}>
                     <Typography variant="h4" sx={{ mb: 2 }}>
                         Smart Contract Explorer
@@ -214,8 +203,7 @@ const ContractVerificationPage: React.FC = () => {
                         </Card>
                     </Grid>
                 )}
-            </Grid>
-        </Layout>
+        </PageShell>
     );
 };
 

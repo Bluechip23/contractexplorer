@@ -11,6 +11,7 @@ import TableRow from '@mui/material/TableRow';
 import { Link } from 'react-router-dom';
 import CopyableId from '../universal/CopyableId';
 import { apiEndpoint } from '../universal/IndividualPage.const';
+import { usePagination } from '../universal/tablePrimitives';
 import { useEffect, useState } from 'react';
 import { Typography } from '@mui/material';
 
@@ -43,8 +44,7 @@ interface TopWalletsTableProps {
 }
 
 const TopWalletsTable: React.FC = () => {
-    const [page, setPage] = useState(0);
-    const [rowsPerPage, setRowsPerPage] = useState(10);
+    const { paginate, paginationProps } = usePagination();
     const [rows, setRows] = useState<TopWalletsTableProps[]>([]);
 
     useEffect(() => {
@@ -97,14 +97,6 @@ const TopWalletsTable: React.FC = () => {
         fetchTopWallets();
         return () => controller.abort();
     }, []);
-    const handleChangePage = (event: unknown, newPage: number) => {
-        setPage(newPage);
-    };
-
-    const handleChangeRowsPerPage = (event: React.ChangeEvent<HTMLInputElement>) => {
-        setRowsPerPage(+event.target.value);
-        setPage(0);
-    };
 
     return (
         <Paper sx={{ width: '100%', overflow: 'hidden' }}>
@@ -120,8 +112,7 @@ const TopWalletsTable: React.FC = () => {
                         </TableRow>
                     </TableHead>
                     <TableBody>
-                        {rows
-                            .slice(page * rowsPerPage, page * rowsPerPage + rowsPerPage)
+                        {paginate(rows)
                             .map((row) => {
                                 return (
                                     <TableRow key={row.walletAddress}>
@@ -137,15 +128,7 @@ const TopWalletsTable: React.FC = () => {
                     </TableBody>
                 </Table>
             </TableContainer>
-            <TablePagination
-                rowsPerPageOptions={[10, 25, 100]}
-                component="div"
-                count={rows.length}
-                rowsPerPage={rowsPerPage}
-                page={page}
-                onPageChange={handleChangePage}
-                onRowsPerPageChange={handleChangeRowsPerPage}
-            />
+            <TablePagination {...paginationProps(rows.length)} />
         </Paper>
     );
 }

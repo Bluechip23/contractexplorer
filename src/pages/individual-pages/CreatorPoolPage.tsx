@@ -1,7 +1,6 @@
 import React, { useEffect, useState } from 'react';
-import { Layout } from '../../ui';
+import { PoolStatusChip } from '../../components/universal/tablePrimitives';
 import {
-    Alert,
     Box,
     Card,
     CardContent,
@@ -10,14 +9,10 @@ import {
     Divider,
     Grid,
     LinearProgress,
-    Stack,
     Typography,
 } from '@mui/material';
-import BlockExpTopBar from '../../navigation/BlockExpTopBar';
-import BlockExpSideBar from '../../navigation/BlockExpSideBar';
 import { Link, useParams } from 'react-router-dom';
-import BlockExplorerNavBar from '../../navigation/BlockExplorerNavBar';
-import GeneralStats from '../../navigation/GeneralStats';
+import PageShell from '../../components/universal/PageShell';
 import PoolHistoryPanel from '../../components/PoolHistoryPanel';
 import PoolStatusBanners from '../../components/universal/PoolStatusBanners';
 import {
@@ -47,6 +42,7 @@ import StatCard from '../../components/universal/StatCard';
 import PoolPieChart from '../../components/individual-pages/PoolPieChart';
 import { useWallet } from '../../context/WalletContext';
 import { compareMicro, microToNumber, safeBigInt } from '../../utils/bigintMath';
+import { timeAgo } from '../../utils/datetime';
 
 function computeTokenPrice(reserve0: string, reserve1: string): string {
     const r0 = microToNumber(reserve0, 0);
@@ -226,9 +222,9 @@ const CreatorPoolPage: React.FC = () => {
 
     if (!id) {
         return (
-            <Layout NavBar={<BlockExpTopBar />} SideBar={<BlockExpSideBar />}>
-                <Typography>Creator Pool Not Found</Typography>
-            </Layout>
+            <PageShell width={8} showStats={false}>
+                <Grid item xs={12} md={8}><Typography>Creator Pool Not Found</Typography></Grid>
+            </PageShell>
         );
     }
 
@@ -246,15 +242,7 @@ const CreatorPoolPage: React.FC = () => {
         : '-';
 
     return (
-        <Layout NavBar={<BlockExpTopBar />} SideBar={<BlockExpSideBar />}>
-            <Grid container justifyContent='center' alignItems='center' spacing={4}>
-                <Grid item xs={12} md={8} sx={{ mt: '10px' }}>
-                    <Stack spacing={2}>
-                        <BlockExplorerNavBar />
-                        <GeneralStats />
-                    </Stack>
-                </Grid>
-
+        <PageShell width={8}>
                 {loading ? (
                     <Grid item xs={12} md={8} sx={{ textAlign: 'center', py: 4 }}>
                         <CircularProgress />
@@ -273,11 +261,7 @@ const CreatorPoolPage: React.FC = () => {
                                         <Typography variant='h5' sx={{ fontWeight: 'bold' }}>
                                             {pool.tokenName} ({pool.tokenSymbol})
                                         </Typography>
-                                        <Chip
-                                            label={pool.thresholdReached ? 'Active' : 'Pre-threshold'}
-                                            color={pool.thresholdReached ? 'success' : 'warning'}
-                                            size="small"
-                                        />
+                                        <PoolStatusChip thresholdReached={pool.thresholdReached} variant="filled" />
                                         <Chip label={poolTypeLabel} size="small" variant="outlined" />
                                         {isCreator && (
                                             <Chip label="You are the Creator" color="primary" size="small" />
@@ -523,13 +507,7 @@ const CreatorPoolPage: React.FC = () => {
                                                 <Grid item xs={6} sm={3}>
                                                     <StatCard
                                                         label="Last Trade"
-                                                        value={(() => {
-                                                            const secondsAgo = Math.floor(Date.now() / 1000) - analytics.analytics.last_trade_timestamp;
-                                                            if (secondsAgo < 60) return `${secondsAgo}s ago`;
-                                                            if (secondsAgo < 3600) return `${Math.floor(secondsAgo / 60)}m ago`;
-                                                            if (secondsAgo < 86400) return `${Math.floor(secondsAgo / 3600)}h ago`;
-                                                            return `${Math.floor(secondsAgo / 86400)}d ago`;
-                                                        })()}
+                                                        value={timeAgo(analytics.analytics.last_trade_timestamp)}
                                                     />
                                                 </Grid>
                                             )}
@@ -543,77 +521,6 @@ const CreatorPoolPage: React.FC = () => {
                                 </Card>
                             </Grid>
                         )}
-
-                        {/* Indexer Placeholder: Historical Data (requires indexer) */}
-                        <Grid item xs={12} md={8}>
-                            <Card sx={{ border: '1px dashed', borderColor: 'divider', opacity: 0.7 }}>
-                                <CardContent>
-                                    <Typography variant="h6" color="text.secondary" sx={{ mb: 1 }}>
-                                        Historical Data
-                                    </Typography>
-                                    <Alert severity="info" sx={{ mb: 2 }}>
-                                        The following sections require an indexer to track historical state changes over time.
-                                        On-chain queries only provide current state — time-series data needs event indexing.
-                                    </Alert>
-                                    <Grid container spacing={2}>
-                                        <Grid item xs={12} sm={6}>
-                                            <Card variant="outlined" sx={{ height: 180, display: 'flex', alignItems: 'center', justifyContent: 'center', bgcolor: 'action.hover' }}>
-                                                <Box sx={{ textAlign: 'center' }}>
-                                                    <BarChartIcon sx={{ fontSize: 40, color: 'text.disabled' }} />
-                                                    <Typography variant="body2" color="text.disabled">Price History Chart</Typography>
-                                                    <Typography variant="caption" color="text.disabled">Indexed from swap events</Typography>
-                                                </Box>
-                                            </Card>
-                                        </Grid>
-                                        <Grid item xs={12} sm={6}>
-                                            <Card variant="outlined" sx={{ height: 180, display: 'flex', alignItems: 'center', justifyContent: 'center', bgcolor: 'action.hover' }}>
-                                                <Box sx={{ textAlign: 'center' }}>
-                                                    <BarChartIcon sx={{ fontSize: 40, color: 'text.disabled' }} />
-                                                    <Typography variant="body2" color="text.disabled">Volume Over Time</Typography>
-                                                    <Typography variant="caption" color="text.disabled">Indexed from swap events</Typography>
-                                                </Box>
-                                            </Card>
-                                        </Grid>
-                                        <Grid item xs={12} sm={6}>
-                                            <Card variant="outlined" sx={{ height: 180, display: 'flex', alignItems: 'center', justifyContent: 'center', bgcolor: 'action.hover' }}>
-                                                <Box sx={{ textAlign: 'center' }}>
-                                                    <BarChartIcon sx={{ fontSize: 40, color: 'text.disabled' }} />
-                                                    <Typography variant="body2" color="text.disabled">Trade History Table</Typography>
-                                                    <Typography variant="caption" color="text.disabled">Indexed from swap events (price, amount, sender, block)</Typography>
-                                                </Box>
-                                            </Card>
-                                        </Grid>
-                                        <Grid item xs={12} sm={6}>
-                                            <Card variant="outlined" sx={{ height: 180, display: 'flex', alignItems: 'center', justifyContent: 'center', bgcolor: 'action.hover' }}>
-                                                <Box sx={{ textAlign: 'center' }}>
-                                                    <BarChartIcon sx={{ fontSize: 40, color: 'text.disabled' }} />
-                                                    <Typography variant="body2" color="text.disabled">Commit History Timeline</Typography>
-                                                    <Typography variant="caption" color="text.disabled">Indexed from commit events</Typography>
-                                                </Box>
-                                            </Card>
-                                        </Grid>
-                                        <Grid item xs={12} sm={6}>
-                                            <Card variant="outlined" sx={{ height: 180, display: 'flex', alignItems: 'center', justifyContent: 'center', bgcolor: 'action.hover' }}>
-                                                <Box sx={{ textAlign: 'center' }}>
-                                                    <BarChartIcon sx={{ fontSize: 40, color: 'text.disabled' }} />
-                                                    <Typography variant="body2" color="text.disabled">Liquidity Add/Remove History</Typography>
-                                                    <Typography variant="caption" color="text.disabled">Indexed from LP events</Typography>
-                                                </Box>
-                                            </Card>
-                                        </Grid>
-                                        <Grid item xs={12} sm={6}>
-                                            <Card variant="outlined" sx={{ height: 180, display: 'flex', alignItems: 'center', justifyContent: 'center', bgcolor: 'action.hover' }}>
-                                                <Box sx={{ textAlign: 'center' }}>
-                                                    <BarChartIcon sx={{ fontSize: 40, color: 'text.disabled' }} />
-                                                    <Typography variant="body2" color="text.disabled">Fee Accrual Over Time</Typography>
-                                                    <Typography variant="caption" color="text.disabled">Indexed from fee collection events</Typography>
-                                                </Box>
-                                            </Card>
-                                        </Grid>
-                                    </Grid>
-                                </CardContent>
-                            </Card>
-                        </Grid>
 
                         {isCreator && (
                             <Grid item xs={12} md={8}>
@@ -777,8 +684,7 @@ const CreatorPoolPage: React.FC = () => {
                         )}
                     </>
                 )}
-            </Grid>
-        </Layout>
+        </PageShell>
     );
 };
 

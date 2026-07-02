@@ -10,7 +10,7 @@ import TableRow from '@mui/material/TableRow';
 import { Typography } from '@mui/material';
 import { Link } from 'react-router-dom';
 import CopyableId from '../universal/CopyableId';
-import { useState } from 'react';
+import { usePagination } from '../universal/tablePrimitives';
 
 
 interface Column {
@@ -62,16 +62,7 @@ interface WalletTransactionsTableProps {
 }
 
 const WalletTransactionsTable: React.FC<WalletTransactionsTableProps> = ({ walletTx }) => {
-    const [page, setPage] = React.useState(0);
-    const [rowsPerPage, setRowsPerPage] = React.useState(10);
-
-    const handleChangePage = (event: unknown, newPage: number) => {
-        setPage(newPage);
-    };
-    const handleChangeRowsPerPage = (event: React.ChangeEvent<HTMLInputElement>) => {
-        setRowsPerPage(+event.target.value);
-        setPage(0);
-    };
+    const { paginate, paginationProps } = usePagination();
 
     return (
         <Paper sx={{ width: '100%', overflow: 'hidden' }}>
@@ -90,8 +81,7 @@ const WalletTransactionsTable: React.FC<WalletTransactionsTableProps> = ({ walle
                         </TableRow>
                     </TableHead>
                     <TableBody>
-                        {walletTx
-                            .slice(page * rowsPerPage, page * rowsPerPage + rowsPerPage)
+                        {paginate(walletTx)
                             .map((row) => {
                                 return (
                                     <TableRow>
@@ -122,15 +112,7 @@ const WalletTransactionsTable: React.FC<WalletTransactionsTableProps> = ({ walle
                     </TableBody>
                 </Table>
             </TableContainer>
-            <TablePagination
-                rowsPerPageOptions={[10, 25, 100]}
-                component="div"
-                count={walletTx.length}
-                rowsPerPage={rowsPerPage}
-                page={page}
-                onPageChange={handleChangePage}
-                onRowsPerPageChange={handleChangeRowsPerPage}
-            />
+            <TablePagination {...paginationProps(walletTx.length)} />
         </Paper>
     );
 }

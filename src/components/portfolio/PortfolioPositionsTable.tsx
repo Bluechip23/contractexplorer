@@ -18,16 +18,7 @@ import PoolActionMenu from '../actions/PoolActionMenu';
 import { formatMicroAmount } from '../../utils/contractQueries';
 import { safeBigInt } from '../../utils/bigintMath';
 import { MyPosition } from './types';
-
-// Position `created_at` / `last_fee_collection` are block-time SECONDS
-// on-chain (`env.block.time.seconds()`) — unlike commit timestamps,
-// which are Timestamp values serialized as nanoseconds.
-function secondsToDateStr(secs: string | number | null | undefined): string {
-    const n = safeBigInt(secs);
-    if (n === 0n) return '-';
-    const d = new Date(Number(n) * 1000);
-    return Number.isNaN(d.getTime()) ? '-' : d.toLocaleDateString();
-}
+import { formatSecondsDate } from '../../utils/datetime';
 
 interface PortfolioPositionsTableProps {
     positions: MyPosition[];
@@ -85,10 +76,10 @@ const PortfolioPositionsTable: React.FC<PortfolioPositionsTableProps> = ({ posit
                                 <TableCell>{formatMicroAmount(p.position.unclaimed_fees_0)}</TableCell>
                                 <TableCell>{formatMicroAmount(p.position.unclaimed_fees_1)}</TableCell>
                                 <TableCell>
-                                    {p.position.last_fee_collection ? secondsToDateStr(p.position.last_fee_collection) : 'Never'}
+                                    {p.position.last_fee_collection ? formatSecondsDate(p.position.last_fee_collection) : 'Never'}
                                 </TableCell>
                                 <TableCell>
-                                    {secondsToDateStr(p.position.created_at)}
+                                    {formatSecondsDate(p.position.created_at)}
                                 </TableCell>
                                 <TableCell align="right">
                                     <PoolActionMenu

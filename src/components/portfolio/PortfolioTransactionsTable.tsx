@@ -18,24 +18,7 @@ import { Link } from 'react-router-dom';
 import { formatMicroAmount } from '../../utils/contractQueries';
 import { safeBigInt } from '../../utils/bigintMath';
 import { MyCommitment, MyPosition, TxRecord } from './types';
-
-// Commit `last_committed` is a Timestamp serialized as NANOSECONDS;
-// position `created_at` / `last_fee_collection` are block-time SECONDS
-// (`env.block.time.seconds()`). Convert each with the right unit.
-function nsToDate(ns: string | number | null | undefined): string {
-    const n = safeBigInt(ns);
-    if (n === 0n) return '-';
-    const ms = Number(n / 1_000_000n);
-    const d = new Date(ms);
-    return Number.isNaN(d.getTime()) ? '-' : d.toLocaleString();
-}
-
-function secondsToDate(secs: string | number | null | undefined): string {
-    const n = safeBigInt(secs);
-    if (n === 0n) return '-';
-    const d = new Date(Number(n) * 1000);
-    return Number.isNaN(d.getTime()) ? '-' : d.toLocaleString();
-}
+import { formatNsTimestamp, formatSecondsTimestamp } from '../../utils/datetime';
 
 interface PortfolioTransactionsTableProps {
     commitments: MyCommitment[];
@@ -60,7 +43,7 @@ const PortfolioTransactionsTable: React.FC<PortfolioTransactionsTableProps> = ({
             pool: c.pool,
             type: 'commit',
             amount: `$${formatMicroAmount(c.commit.total_paid_usd)}`,
-            timestamp: nsToDate(c.commit.last_committed),
+            timestamp: formatNsTimestamp(c.commit.last_committed),
         });
     });
 
@@ -69,7 +52,7 @@ const PortfolioTransactionsTable: React.FC<PortfolioTransactionsTableProps> = ({
             pool: p.pool,
             type: 'position',
             amount: formatMicroAmount(p.position.liquidity),
-            timestamp: secondsToDate(p.position.created_at),
+            timestamp: formatSecondsTimestamp(p.position.created_at),
         });
     });
 

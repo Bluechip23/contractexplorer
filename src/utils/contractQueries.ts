@@ -1,4 +1,5 @@
 import { safeBigInt } from './bigintMath';
+import { sanitizeOnChainString } from './security';
 import * as chain from './chainQueries';
 
 const MOCK_WALLET = 'bluechip1q2w3e4r5t6y7u8i9o0pzxcvbnmasdfghjkl42';
@@ -930,15 +931,6 @@ async function mockQueryFactoryNotifyStatus(_poolAddress: string): Promise<Facto
 }
 
 
-
-export function getCreatorTokenAddress(assetInfos: [TokenType, TokenType]): string | null {
-    const creatorToken = assetInfos.find(
-        (asset): asset is { creator_token: { contract_addr: string } } =>
-            asset.creator_token !== undefined
-    );
-    return creatorToken?.creator_token.contract_addr ?? null;
-}
-
 export { formatMicroAmount, safeBigInt, microToNumber } from './bigintMath';
 
 export function abbreviateAddress(address: string, prefixLen: number = 12, suffixLen: number = 6): string {
@@ -950,21 +942,13 @@ export function abbreviateAddress(address: string, prefixLen: number = 12, suffi
 // they are rendered. On-chain data (token names, symbols, contract labels)
 // is untrusted — an attacker could deploy a pool with a name containing
 // zero-width characters, RTL overrides, or abusively long strings that break
-// layout or enable phishing. This function strips control characters and
-// truncates to safe lengths. Should be called on every pool summary returned
+// layout or enable phishing. Should be called on every pool summary returned
 // from a chain query before it enters the React render tree.
-// eslint-disable-next-line no-control-regex
-const UNSAFE_CHARS = /[\u0000-\u001F\u007F-\u009F\u200B-\u200F\u202A-\u202E\u2066-\u2069\uFEFF]/g;
-function sanitizeStr(s: string, maxLen: number): string {
-    const cleaned = s.replace(UNSAFE_CHARS, '');
-    return cleaned.length <= maxLen ? cleaned : cleaned.slice(0, maxLen) + '\u2026';
-}
-
 export function sanitizePoolSummary(pool: PoolSummary): PoolSummary {
     return {
         ...pool,
-        tokenName: sanitizeStr(pool.tokenName, 64),
-        tokenSymbol: sanitizeStr(pool.tokenSymbol, 16),
+        tokenName: sanitizeOnChainString(pool.tokenName, 64),
+        tokenSymbol: sanitizeOnChainString(pool.tokenSymbol, 16),
     };
 }
 
@@ -1095,41 +1079,9 @@ export async function queryFactoryNotifyStatus(poolAddress: string): Promise<Fac
     return mockQueryFactoryNotifyStatus(poolAddress);
 }
 
-// ---- Previously-stubbed single reads (real on chain, null in demo mode) ----
-
-export async function queryPoolState(poolAddress: string): Promise<PoolStateResponse | null> {
-    if (await onChain()) return chain.chainQueryPoolState(poolAddress).catch(() => null);
-    return null;
-}
-
-export async function queryPoolInfo(poolAddress: string): Promise<PoolInfoResponse | null> {
-    if (await onChain()) return chain.chainQueryPoolInfo(poolAddress).catch(() => null);
-    return null;
-}
-
-export async function queryFeeState(poolAddress: string): Promise<PoolFeeStateResponse | null> {
-    if (await onChain()) return chain.chainQueryFeeState(poolAddress).catch(() => null);
-    return null;
-}
-
-export async function queryCommitStatus(poolAddress: string): Promise<CommitStatus | null> {
-    if (await onChain()) return chain.chainQueryCommitStatus(poolAddress).catch(() => null);
-    return null;
-}
-
 export async function queryTokenInfo(tokenAddress: string): Promise<CW20TokenInfo | null> {
     if (await onChain()) return chain.chainQueryTokenInfo(tokenAddress).catch(() => null);
     return null;
-}
-
-export async function queryFactoryConfig(_factoryAddr: string): Promise<FactoryConfig | null> {
-    if (await onChain()) return chain.chainQueryFactoryConfig();
-    return null;
-}
-
-export async function discoverPoolContracts(_codeId: number): Promise<string[]> {
-    if (await onChain()) return chain.chainDiscoverPoolContracts().catch(() => []);
-    return [];
 }
 
 export function getCosmWasmClient() {

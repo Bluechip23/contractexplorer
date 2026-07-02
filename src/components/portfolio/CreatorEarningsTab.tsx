@@ -31,6 +31,7 @@ import {
     queryPoolIsPaused,
 } from '../../utils/contractQueries';
 import { safeBigInt } from '../../utils/bigintMath';
+import { nsToDate } from '../../utils/datetime';
 import { fetchCreatorStatement, indexerHealth } from '../../utils/indexerApi';
 import {
     assertWalletOnExpectedChain,
@@ -53,12 +54,6 @@ interface CreatorEarningsTabProps {
 
 function commitFeeRevenueMicroUsd(pool: PoolSummary): bigint {
     return (safeBigInt(pool.totalUsdRaised) * CREATOR_COMMIT_FEE_BPS) / 10_000n;
-}
-
-function nsToDate(ns: string | null | undefined): Date | null {
-    const n = safeBigInt(ns);
-    if (n === 0n) return null;
-    return new Date(Number(n / 1_000_000n));
 }
 
 // Micro-units → plain decimal string for spreadsheets (no thousands

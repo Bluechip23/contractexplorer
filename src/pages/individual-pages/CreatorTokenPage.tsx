@@ -1,11 +1,8 @@
 import React, { useEffect, useState } from 'react';
-import { Card, CardContent, Chip, CircularProgress, Divider, Grid, Stack, Typography, Box } from '@mui/material';
-import BlockExpSideBar from '../../navigation/BlockExpSideBar';
-import BlockExpTopBar from '../../navigation/BlockExpTopBar';
-import { Layout } from '../../ui';
+import { PoolStatusChip } from '../../components/universal/tablePrimitives';
+import { Card, CardContent, CircularProgress, Divider, Grid, Typography, Box } from '@mui/material';
 import { Link, useParams } from 'react-router-dom';
-import BlockExplorerNavBar from '../../navigation/BlockExplorerNavBar';
-import GeneralStats from '../../navigation/GeneralStats';
+import PageShell from '../../components/universal/PageShell';
 import {
     queryTokenInfo,
     fetchAllPoolSummaries,
@@ -46,18 +43,11 @@ const CreatorTokenPage: React.FC = () => {
     }, [id]);
 
     if (!id) {
-        return <Layout NavBar={<BlockExpTopBar />} SideBar={<BlockExpSideBar />}><Typography>Token Not Found</Typography></Layout>;
+        return <PageShell width={8} showStats={false}><Grid item xs={12} md={8}><Typography>Token Not Found</Typography></Grid></PageShell>;
     }
 
     return (
-        <Layout NavBar={<BlockExpTopBar />} SideBar={<BlockExpSideBar />}>
-            <Grid container spacing={2} justifyContent='center' alignItems='center'>
-                <Grid item xs={12} md={8} sx={{ mt: '10px' }}>
-                    <Stack spacing={2}>
-                        <BlockExplorerNavBar />
-                        <GeneralStats />
-                    </Stack>
-                </Grid>
+        <PageShell width={8}>
                 <Grid item xs={12} md={8}>
                     {loading ? (
                         <Box sx={{ textAlign: 'center', py: 4 }}>
@@ -72,11 +62,7 @@ const CreatorTokenPage: React.FC = () => {
                                 <Box sx={{ display: 'flex', alignItems: 'center', gap: 2, mb: 1 }}>
                                     <Typography variant='h5'>{tokenInfo.name} ({tokenInfo.symbol})</Typography>
                                     {pool && (
-                                        <Chip
-                                            label={pool.thresholdReached ? 'Active' : 'Pre-threshold'}
-                                            color={pool.thresholdReached ? 'success' : 'warning'}
-                                            size="small"
-                                        />
+                                        <PoolStatusChip thresholdReached={pool.thresholdReached} variant="filled" />
                                     )}
                                 </Box>
                                 <Divider />
@@ -99,8 +85,7 @@ const CreatorTokenPage: React.FC = () => {
                         </Card>
                     )}
                 </Grid>
-            </Grid>
-        </Layout>
+        </PageShell>
     );
 };
 
