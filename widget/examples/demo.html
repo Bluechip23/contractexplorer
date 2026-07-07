@@ -1,0 +1,43 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>BlueChip Widget Demo</title>
+    <style>
+        body { font-family: system-ui, sans-serif; max-width: 640px; margin: 40px auto; padding: 0 16px; }
+        section { margin: 32px 0; padding: 20px; border: 1px solid #e5e7eb; border-radius: 12px; }
+        h2 { margin-top: 0; font-size: 18px; }
+    </style>
+</head>
+<body>
+    <h1>BlueChip Widget Demo</h1>
+    <p>
+        Edit the <code>data-pool</code> attributes below to your creator pool
+        address, then serve this file (any static server) with Keplr installed.
+    </p>
+
+    <section>
+        <h2>Subscribe button</h2>
+        <div data-bluechip-subscribe
+             data-pool="bluechip1YOUR_POOL_ADDRESS"
+             data-amount="25"></div>
+    </section>
+
+    <section>
+        <h2>Gated content ($5 minimum)</h2>
+        <div data-bluechip-gate
+             data-pool="bluechip1YOUR_POOL_ADDRESS"
+             data-min-usd="5">
+            🎉 You're a subscriber — here's the members-only content.
+        </div>
+    </section>
+
+    <!-- In production load from jsDelivr (or self-host the file):
+         https://cdn.jsdelivr.net/gh/Bluechip23/bluechipblockexplorer@main/widget/dist/bluechip-widget.min.js -->
+    <script src="../dist/bluechip-widget.min.js"></script>
+    <!-- Optional site-wide config:
+    <script>BluechipWidget.init({ pool: "bluechip1YOUR_POOL_ADDRESS" });</script>
+    -->
+</body>
+</html>

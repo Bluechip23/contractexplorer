@@ -25,9 +25,27 @@ import CodeBlock from '../components/universal/CodeBlock';
 import SectionCard from '../components/universal/DocSectionCard';
 
 
-const scriptTagsCode = `<!-- CosmJS — Required for all BlueChip interactions -->
-<script src="https://unpkg.com/@cosmjs/cosmwasm-stargate@0.32.4/build/bundle.js"></script>
-<script src="https://unpkg.com/@cosmjs/stargate@0.32.4/build/bundle.js"></script>`;
+const widgetQuickStartCode = `<!-- 1. Load the BlueChip widget (self-contained, no other scripts needed) -->
+<script src="https://cdn.jsdelivr.net/gh/Bluechip23/bluechipblockexplorer@main/widget/dist/bluechip-widget.min.js"><\/script>
+
+<!-- 2. Subscribe button — the ONLY thing you edit is your pool address -->
+<div data-bluechip-subscribe data-pool="bluechip1YOUR_POOL_ADDRESS" data-amount="25"></div>
+
+<!-- 3. Optional: gate content behind a subscription -->
+<div data-bluechip-gate data-pool="bluechip1YOUR_POOL_ADDRESS" data-min-usd="5">
+    Subscriber-only content.
+</div>`;
+
+// CosmJS ships no browser bundle (unpkg .../build/bundle.js 404s), so the
+// manual path loads it as an ES module and exposes the global the
+// snippets below expect.
+const scriptTagsCode = `<!-- CosmJS — required for the hand-rolled snippets below.
+     Bundler users: npm install @cosmjs/cosmwasm-stargate@0.32.4 instead. -->
+<script type="module">
+    import * as cosmwasm from "https://esm.sh/@cosmjs/cosmwasm-stargate@0.32.4";
+    window.CosmWasmClient = cosmwasm;   // snippets use CosmWasmClient.SigningCosmWasmClient
+    window.dispatchEvent(new Event("cosmjs-ready"));
+<\/script>`;
 
 const configCode = `<script>
 // ============================================================
@@ -1209,8 +1227,13 @@ const fullExampleCode = `<!DOCTYPE html>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>BlueChip - My Creator Page</title>
-    <script src="https://unpkg.com/@cosmjs/cosmwasm-stargate@0.32.4/build/bundle.js"><\/script>
-    <script src="https://unpkg.com/@cosmjs/stargate@0.32.4/build/bundle.js"><\/script>
+    <!-- CosmJS has no prebuilt browser bundle; load it as an ES module
+         and expose the global the handlers below use. -->
+    <script type="module">
+        import * as cosmwasm from "https://esm.sh/@cosmjs/cosmwasm-stargate@0.32.4";
+        window.CosmWasmClient = cosmwasm;
+        window.dispatchEvent(new Event("cosmjs-ready"));
+    <\/script>
     <style>
         body {
             font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif;
@@ -1415,10 +1438,21 @@ const IntegrationGuidePage: React.FC = () => {
 
                         {/* Section 2: Quick Start */}
                         <SectionCard id="quick-start" number="2" title="Quick Start — Add the Script Tags">
+                            <Typography variant="h6" gutterBottom>Fastest path: the BlueChip widget (recommended)</Typography>
                             <Typography paragraph>
-                                Add these two script tags to your HTML page, either in the <code>&lt;head&gt;</code> or
-                                right before <code>&lt;/body&gt;</code>. These load the CosmJS library that talks to the blockchain.
+                                For a Subscribe button and/or subscriber-gated content, use the prebuilt widget —
+                                one self-contained script tag, and the only thing you edit is your pool address.
+                                See the <code>widget/</code> directory of this repo for all options.
                             </Typography>
+                            <CodeBlock code={widgetQuickStartCode} language="HTML" />
+
+                            <Typography variant="h6" gutterBottom sx={{ mt: 3 }}>Manual path: load CosmJS yourself</Typography>
+                            <Alert severity="warning" sx={{ mb: 2 }}>
+                                CosmJS publishes no ready-made browser bundle — a plain{' '}
+                                <code>&lt;script src=&quot;unpkg.com/.../build/bundle.js&quot;&gt;</code> tag 404s. Sites with a
+                                bundler should <code>npm install @cosmjs/cosmwasm-stargate</code>; plain HTML sites can load
+                                it as an ES module from a CJS-to-ESM CDN:
+                            </Alert>
                             <CodeBlock code={scriptTagsCode} language="HTML" />
 
                             <Typography paragraph sx={{ mt: 2 }}>

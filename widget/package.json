@@ -1,0 +1,25 @@
+{
+  "name": "@bluechip/subscribe-widget",
+  "version": "0.1.0",
+  "private": true,
+  "description": "Embeddable BlueChip subscribe button + subscription gate. One <script> tag, no build tools required.",
+  "main": "dist/bluechip-widget.js",
+  "scripts": {
+    "build": "node build.mjs",
+    "test": "tsc --noEmit && node --test test/*.test.ts",
+    "smoke": "node test/smoke.mjs",
+    "check": "npm run build && npm test && npm run smoke"
+  },
+  "dependencies": {
+    "@cosmjs/cosmwasm-stargate": "^0.32.4",
+    "@cosmjs/stargate": "^0.32.4"
+  },
+  "devDependencies": {
+    "esbuild": "^0.24.0",
+    "playwright-core": "^1.48.0",
+    "typescript": "^5.5.4"
+  },
+  "engines": {
+    "node": ">=20"
+  }
+}
