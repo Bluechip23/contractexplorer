@@ -28,7 +28,27 @@ const CommitTracker: React.FC<CommitTrackerProps> = ({ client, contractAddress }
     const [totalRaised, setTotalRaised] = useState(0);
     const [totalBluechips, setTotalBluechips] = useState(0);
     const [graphData, setGraphData] = useState<GraphDataPoint[]>([]);
-    const THRESHOLD = 25000;
+    // Funding goal in whole USD. The real target is per-factory config
+    // (commit_threshold_limit_usd), read from the pool's
+    // `is_fully_commited` query; 25,000 is only the display fallback.
+    const [goalUsd, setGoalUsd] = useState(25000);
+
+    useEffect(() => {
+        if (!client || !contractAddress) return;
+        let cancelled = false;
+        (async () => {
+            try {
+                const status = await client.queryContractSmart(contractAddress, { is_fully_commited: {} });
+                const target = status && typeof status === 'object' && 'in_progress' in status
+                    ? microToNumber((status as { in_progress: { target: string } }).in_progress.target)
+                    : 0;
+                if (!cancelled && target > 0) setGoalUsd(target);
+            } catch {
+                // keep the fallback goal
+            }
+        })();
+        return () => { cancelled = true; };
+    }, [client, contractAddress]);
 
     // Preferred path: the indexer's per-transaction commit history gives
     // the true cumulative funding curve. The on-chain ledger only stores
@@ -49,15 +69,15 @@ const CommitTracker: React.FC<CommitTrackerProps> = ({ client, contractAddress }
             wallets.add(c.committer);
             return {
                 name: '',
-                value: microToNumber(value, 0),
-                total: microToNumber(cumulative, 0),
+                value: microToNumber(value),
+                total: microToNumber(cumulative),
                 timestamp: new Date(c.ts * 1000).toLocaleString(),
             };
         });
 
         setUniqueCommitters(wallets.size);
-        setTotalRaised(microToNumber(cumulative, 0));
-        setTotalBluechips(microToNumber(bluechipTotal, 0));
+        setTotalRaised(microToNumber(cumulative));
+        setTotalBluechips(microToNumber(bluechipTotal));
         setGraphData(data);
         return true;
     }, [contractAddress]);
@@ -91,15 +111,15 @@ const CommitTracker: React.FC<CommitTrackerProps> = ({ client, contractAddress }
                     const tsMs = tsNs === 0n ? NaN : Number(tsNs / 1_000_000n);
                     return {
                         name: '',
-                        value: microToNumber(value, 0),
-                        total: microToNumber(cumulative, 0),
+                        value: microToNumber(value),
+                        total: microToNumber(cumulative),
                         timestamp: Number.isNaN(tsMs) ? '-' : new Date(tsMs).toLocaleString(),
                     };
                 });
 
                 setUniqueCommitters(sortedCommits.length);
-                setTotalRaised(microToNumber(cumulative, 0));
-                setTotalBluechips(microToNumber(bluechipTotal, 0));
+                setTotalRaised(microToNumber(cumulative));
+                setTotalBluechips(microToNumber(bluechipTotal));
                 setGraphData(data);
             }
         } catch (err) {
@@ -117,8 +137,7 @@ const CommitTracker: React.FC<CommitTrackerProps> = ({ client, contractAddress }
         return () => { cancelled = true; };
     }, [contractAddress, loadFromIndexer, loadFromChain]);
 
-    const displayTotal = totalRaised > 1000000 ? totalRaised / 1000000 : totalRaised;
-    const progress = Math.min((displayTotal / THRESHOLD) * 100, 100);
+    const progress = Math.min((totalRaised / goalUsd) * 100, 100);
 
     return (
         <Card sx={{ mb: 2 }}>
@@ -126,8 +145,8 @@ const CommitTracker: React.FC<CommitTrackerProps> = ({ client, contractAddress }
                 <Typography variant="h6" gutterBottom>Subscription Tracker</Typography>
                 <Box sx={{ mb: 3 }}>
                     <Box sx={{ display: 'flex', justifyContent: 'space-between', mb: 1 }}>
-                        <Typography variant="body2">Raised: ${displayTotal.toLocaleString()}</Typography>
-                        <Typography variant="body2">Goal: ${THRESHOLD.toLocaleString()}</Typography>
+                        <Typography variant="body2">Raised: ${totalRaised.toLocaleString()}</Typography>
+                        <Typography variant="body2">Goal: ${goalUsd.toLocaleString()}</Typography>
                     </Box>
                     <LinearProgress variant="determinate" value={progress} sx={{ height: 10, borderRadius: 5 }} />
                     <Typography variant="caption" color="textSecondary">
@@ -140,7 +159,7 @@ const CommitTracker: React.FC<CommitTrackerProps> = ({ client, contractAddress }
                             <CartesianGrid stroke="#ccc" strokeDasharray="5 5" />
                             <XAxis dataKey="name" label={{ value: `Users Committed: ${uniqueCommitters}`, offset: -10 }} />
                             <YAxis
-                                domain={[0, Math.max(THRESHOLD, displayTotal * 1.1)]}
+                                domain={[0, Math.max(goalUsd, totalRaised * 1.1)]}
                                 label={{ value: 'Subscription Amount', angle: -90, position: 'left', dy: -60, offset: -10 }}
                                 tick={{ fontSize: 10 }}
                             />
@@ -149,7 +168,7 @@ const CommitTracker: React.FC<CommitTrackerProps> = ({ client, contractAddress }
                                 labelStyle={{ color: '#aaa' }}
                                 formatter={(value: any, name: any) => [`$${value}`, name === 'total' ? 'Cumulative Total' : 'Transaction Value']}
                             />
-                            <ReferenceLine y={THRESHOLD} label="Goal" stroke="red" strokeDasharray="3 3" />
+                            <ReferenceLine y={goalUsd} label="Goal" stroke="red" strokeDasharray="3 3" />
                             <Line type="monotone" dataKey="total" stroke="#8884d8" strokeWidth={2} dot={false} activeDot={{ r: 8 }} />
                         </LineChart>
                     </ResponsiveContainer>

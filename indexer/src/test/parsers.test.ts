@@ -78,11 +78,11 @@ test('funding-phase commit parses amounts and raises no trade', () => {
     assert.equal(c.usd_raised_after, '5000000');
 });
 
-test('post-threshold commit produces a commit row AND a buy trade', () => {
+test('post-threshold ("active") commit produces a commit row AND a buy trade', () => {
     const out = parseTxEvents(CTX, [wasm({
         _contract_address: POOL,
         action: 'commit',
-        phase: 'post-threshold',
+        phase: 'active',
         committer: 'bluechip1fan',
         commit_amount_bluechip: '1000000',
         commit_amount_usd: '125000',
@@ -104,19 +104,35 @@ test('post-threshold commit produces a commit row AND a buy trade', () => {
     assert.ok(Math.abs((t.price ?? 0) - 0.5) < 1e-9);
 });
 
-test('threshold-crossing commit normalizes total_amount_* and marks the crossing', () => {
+test('threshold-crossing commit normalizes total/threshold/swap amounts and marks the crossing', () => {
     const out = parseTxEvents(CTX, [wasm({
         _contract_address: POOL,
         action: 'commit',
-        phase: 'threshold-crossing',
+        phase: 'threshold_crossing',
         committer: 'bluechip1whale',
         total_amount_bluechip: '99000000',
-        total_amount_usd: '12000000',
         threshold_amount_usd: '11000000',
+        swap_amount_usd: '1000000',
         pool_contract: POOL,
     })]);
     assert.equal(out.commits[0].amount_bluechip, '99000000');
+    assert.equal(out.commits[0].amount_usd, '12000000');   // threshold + swap USD
+    assert.deepEqual(out.thresholdCrossings, [{ pool: POOL, ts: CTX.ts }]);
+});
+
+test('exact threshold hit marks the crossing and keeps commit_amount_usd', () => {
+    const out = parseTxEvents(CTX, [wasm({
+        _contract_address: POOL,
+        action: 'commit',
+        phase: 'threshold_hit_exact',
+        committer: 'bluechip1whale',
+        commit_amount_bluechip: '99000000',
+        commit_amount_usd: '12000000',
+        total_usd_raised_after: '25000000000',
+        pool_contract: POOL,
+    })]);
     assert.equal(out.commits[0].amount_usd, '12000000');
+    assert.equal(out.trades.length, 0);
     assert.deepEqual(out.thresholdCrossings, [{ pool: POOL, ts: CTX.ts }]);
 });
 

@@ -120,6 +120,9 @@ export interface FactoryConfig {
     bluechip_mint_contract_address: string | null;
     bluechip_denom: string;
     atom_denom: string;
+    // USD (6 decimals) fee charged for BOTH create and create_standard_pool,
+    // paid in bluechip at the oracle rate. Zero = fee disabled.
+    standard_pool_creation_fee_usd: string;
     [key: string]: unknown;
 }
 

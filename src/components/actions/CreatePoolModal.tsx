@@ -51,6 +51,9 @@ const TOKEN_SYMBOL_MAX = 12;
 // `factory/src/execute/pool_lifecycle/create.rs`.
 const CREATOR_TOKEN_SENTINEL = 'WILL_BE_CREATED_BY_FACTORY';
 
+// Contract bound (factory create.rs MAX_LABEL_LEN).
+const POOL_LABEL_MAX = 128;
+
 const CreatePoolModal: React.FC<CreatePoolModalProps> = ({ open, onClose, onSuccess }) => {
     const { client, address } = useWallet();
     const [stage, setStage] = useState<TxStage>('input');
@@ -62,11 +65,20 @@ const CreatePoolModal: React.FC<CreatePoolModalProps> = ({ open, onClose, onSucc
     const [txHash, setTxHash] = useState('');
     const [errorMsg, setErrorMsg] = useState('');
     const [inputError, setInputError] = useState('');
+    // ubluechip to attach as the creation fee: '0' = fee disabled (attach
+    // nothing), null = quote not loaded / failed.
+    const [creationFeeMicro, setCreationFeeMicro] = useState<string | null>(null);
 
     const steps = ['Pool Details', 'Confirm', 'Result'];
     const activeStep = stage === 'input' ? 0 : stage === 'confirm' || stage === 'executing' ? 1 : 2;
 
     const FACTORY = factoryAddress || process.env.REACT_APP_FACTORY_ADDRESS || '';
+
+    const feeDisplay = creationFeeMicro === null
+        ? 'unavailable'
+        : creationFeeMicro === '0'
+            ? 'disabled'
+            : `≈ ${(Number(creationFeeMicro) / 1_000_000).toLocaleString()} bluechip`;
 
     const resetAndClose = () => {
         setStage('input');
@@ -78,10 +90,33 @@ const CreatePoolModal: React.FC<CreatePoolModalProps> = ({ open, onClose, onSucc
         setTxHash('');
         setErrorMsg('');
         setInputError('');
+        setCreationFeeMicro(null);
         onClose();
     };
 
-    const handleReview = () => {
+    // The factory charges a USD-denominated creation fee for BOTH pool
+    // kinds (`standard_pool_creation_fee_usd`), payable in ubluechip at
+    // the oracle rate and validated with must_pay — the funds MUST be
+    // attached to the execute or it reverts. When the fee is zero the
+    // factory instead rejects any attached funds, so send nothing.
+    const quoteCreationFee = async (): Promise<string> => {
+        if (!client) throw new Error('Wallet not connected');
+        const { factory } = await client.queryContractSmart(FACTORY, { factory: {} });
+        const feeUsd = BigInt(factory?.standard_pool_creation_fee_usd ?? '0');
+        if (feeUsd === 0n) return '0';
+        const conv = await client.queryContractSmart(FACTORY, {
+            internal_blue_chip_oracle_query: {
+                convert_usd_to_bluechip: { amount: feeUsd.toString() },
+            },
+        });
+        const required = BigInt(conv.amount);
+        if (required === 0n) throw new Error('Factory returned a zero fee conversion');
+        // +2% headroom: the oracle rate can move between quoting and
+        // execution; the factory refunds any surplus in the same tx.
+        return (required + required / 50n + 1n).toString();
+    };
+
+    const handleReview = async () => {
         setInputError('');
 
         if (FACTORY) {
@@ -109,8 +144,8 @@ const CreatePoolModal: React.FC<CreatePoolModalProps> = ({ open, onClose, onSucc
                 setInputError('Pool label is required for a standard pool.');
                 return;
             }
-            if (poolLabel.length > 64) {
-                setInputError('Pool label cannot exceed 64 characters.');
+            if (poolLabel.length > POOL_LABEL_MAX) {
+                setInputError(`Pool label cannot exceed ${POOL_LABEL_MAX} characters.`);
                 return;
             }
         } else {
@@ -143,6 +178,19 @@ const CreatePoolModal: React.FC<CreatePoolModalProps> = ({ open, onClose, onSucc
             }
             if (!/[A-Z]/.test(tokenSymbol)) {
                 setInputError('Token symbol must contain at least one letter.');
+                return;
+            }
+        }
+
+        // Quote the creation fee before showing the confirm step so the
+        // user sees what will be attached. A failed quote is surfaced as
+        // an input error rather than a doomed transaction later.
+        if (client && FACTORY) {
+            try {
+                setCreationFeeMicro(await quoteCreationFee());
+            } catch (err) {
+                setCreationFeeMicro(null);
+                setInputError(`Could not quote the pool creation fee: ${(err as Error).message}`);
                 return;
             }
         }
@@ -191,9 +239,18 @@ const CreatePoolModal: React.FC<CreatePoolModalProps> = ({ open, onClose, onSucc
             return;
         }
 
+        if (creationFeeMicro === null) {
+            setErrorMsg('Pool creation fee quote missing — go back and review again.');
+            setStage('error');
+            return;
+        }
+
         setStage('executing');
         try {
             const createMsg = isStandardPool ? buildStandardPoolMsg() : buildCreatorPoolMsg();
+            const funds = creationFeeMicro !== '0'
+                ? [{ denom: NATIVE_DENOM, amount: creationFeeMicro }]
+                : [];
 
             try {
                 await client.simulate(address, [{
@@ -202,7 +259,7 @@ const CreatePoolModal: React.FC<CreatePoolModalProps> = ({ open, onClose, onSucc
                         sender: address,
                         contract: FACTORY,
                         msg: new TextEncoder().encode(JSON.stringify(createMsg)),
-                        funds: [],
+                        funds,
                     },
                 }], 'Create Pool');
             } catch (simErr) {
@@ -216,7 +273,8 @@ const CreatePoolModal: React.FC<CreatePoolModalProps> = ({ open, onClose, onSucc
                 FACTORY,
                 createMsg,
                 { amount: [], gas: '2000000' },
-                isStandardPool ? 'Create Standard Pool' : 'Create Creator Pool'
+                isStandardPool ? 'Create Standard Pool' : 'Create Creator Pool',
+                funds
             );
             setTxHash(result.transactionHash);
             setStage('success');
@@ -263,7 +321,8 @@ const CreatePoolModal: React.FC<CreatePoolModalProps> = ({ open, onClose, onSucc
                             <>
                                 <Typography variant="body2" color="text.secondary">
                                     Pairs the canonical bluechip native denom against an existing CW20 token.
-                                    Requires the standard-pool creation fee in ubluechip (auto-handled by the factory).
+                                    The pool creation fee is quoted from the factory and attached to the
+                                    transaction in ubluechip; any surplus is refunded on-chain.
                                 </Typography>
                                 <TextField
                                     label="Counterpart CW20 Contract Address"
@@ -280,7 +339,7 @@ const CreatePoolModal: React.FC<CreatePoolModalProps> = ({ open, onClose, onSucc
                                     placeholder="bluechip-FOO standard pool"
                                     fullWidth
                                     required
-                                    inputProps={{ maxLength: 64 }}
+                                    inputProps={{ maxLength: POOL_LABEL_MAX }}
                                     helperText="Shown in block explorers and operator tooling."
                                 />
                             </>
@@ -355,8 +414,9 @@ const CreatePoolModal: React.FC<CreatePoolModalProps> = ({ open, onClose, onSucc
                                     { label: 'Pool Type', value: 'Standard (existing CW20 pair)' },
                                     { label: 'bluechip side', value: NATIVE_DENOM },
                                     { label: 'Counterpart Token', value: `${counterpartTokenAddr.slice(0, 14)}...${counterpartTokenAddr.slice(-6)}` },
-                                    { label: 'Label', value: sanitizeOnChainString(poolLabel, 64) },
+                                    { label: 'Label', value: sanitizeOnChainString(poolLabel, POOL_LABEL_MAX) },
                                     { label: 'Creator Wallet', value: `${address.slice(0, 12)}...${address.slice(-6)}` },
+                                    { label: 'Creation Fee (max, surplus refunded)', value: feeDisplay },
                                 ]
                                 : [
                                     { label: 'Pool Type', value: 'Creator (commit-based)' },
@@ -364,6 +424,7 @@ const CreatePoolModal: React.FC<CreatePoolModalProps> = ({ open, onClose, onSucc
                                     { label: 'Token Symbol', value: sanitizeOnChainString(tokenSymbol, TOKEN_SYMBOL_MAX) },
                                     { label: 'Decimals', value: '6' },
                                     { label: 'Creator Wallet', value: `${address.slice(0, 12)}...${address.slice(-6)}` },
+                                    { label: 'Creation Fee (max, surplus refunded)', value: feeDisplay },
                                 ]
                             ).map((d, i) => (
                                 <Box key={i} sx={{ display: 'flex', justifyContent: 'space-between', py: 0.5 }}>

@@ -1148,8 +1148,8 @@ const privEventWatchCode = `// =================================================
 //  REAL-TIME: react the moment a commit lands on-chain.
 //  Every commit emits a wasm event with these attributes:
 //    action:    "commit"
-//    phase:     "funding" | "post-threshold" |
-//               "threshold-crossing" | "threshold-hit-exact"
+//    phase:     "funding" (pre-threshold) | "active" (post-threshold) |
+//               "threshold_crossing" | "threshold_hit_exact"
 //    committer: wallet address that committed
 //    commit_amount_bluechip / commit_amount_usd (micro-units)
 //    total_commit_count, pool_contract, block_height, block_time
