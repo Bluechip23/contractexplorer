@@ -44,7 +44,7 @@ CREATE TABLE IF NOT EXISTS commits (
     ts INTEGER NOT NULL,
     pool TEXT NOT NULL,
     committer TEXT NOT NULL,
-    phase TEXT NOT NULL,               -- funding | post-threshold | threshold-crossing | threshold-hit-exact
+    phase TEXT NOT NULL,               -- funding | active | threshold_crossing | threshold_hit_exact
     amount_bluechip TEXT,
     amount_usd TEXT,
     usd_raised_after TEXT,

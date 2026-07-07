@@ -184,8 +184,22 @@ export function chainQueryFactoryNotifyStatus(poolAddress: string): Promise<Fact
     return smart<FactoryNotifyStatusResponse>(poolAddress, { factory_notify_status: {} });
 }
 
-export function chainQueryPositions(poolAddress: string): Promise<PositionsResponse> {
-    return smart<PositionsResponse>(poolAddress, { positions: { start_after: null, limit: 100 } });
+// The pool clamps the `positions` page size to 30 (pool-core
+// query_positions: `limit.unwrap_or(10).min(30)`), so walk pages instead
+// of asking for one oversized one. Capped at 600 positions so one pool
+// can't make the UI walk an unbounded range.
+export async function chainQueryPositions(poolAddress: string): Promise<PositionsResponse> {
+    const positions: PositionsResponse['positions'] = [];
+    let startAfter: string | null = null;
+    for (let page = 0; page < 20; page++) {
+        const res: PositionsResponse = await smart(poolAddress, {
+            positions: { start_after: startAfter, limit: 30 },
+        });
+        positions.push(...res.positions);
+        if (res.positions.length < 30) break;
+        startAfter = res.positions[res.positions.length - 1].position_id;
+    }
+    return { positions };
 }
 
 export async function chainQueryPoolCreator(poolAddress: string): Promise<string | null> {

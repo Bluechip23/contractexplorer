@@ -3,9 +3,14 @@ import { decodeEventAttrs, RawEvent } from './rpc';
 
 // Pure event -> row mapping. Attribute keys mirror the contracts exactly:
 //
-//   commit (creator-pool/src/commit.rs):
+//   commit (creator-pool/src/commit.rs + commit/*.rs):
 //     action=commit, phase, committer, pool_contract, block_height,
-//     block_time, total_commit_count + per-phase amount attributes
+//     block_time, total_commit_count + per-phase amount attributes.
+//     phase is one of:
+//       funding             – pre-threshold commit
+//       active              – post-threshold commit (routed through the AMM)
+//       threshold_crossing  – the commit that pushed past the threshold
+//       threshold_hit_exact – hit the threshold exactly (no excess swap)
 //   swap (pool-core/src/swap.rs):
 //     action=swap, sender, receiver, offer_asset, ask_asset, offer_amount,
 //     return_amount, spread_amount, commission_amount, effective_price,
@@ -53,6 +58,17 @@ function num(s: string | undefined): number | null {
     if (s === undefined) return null;
     const n = parseFloat(s);
     return Number.isFinite(n) ? n : null;
+}
+
+// Sum two micro-unit attribute strings; null when neither is present or
+// either is malformed.
+function sumMicro(a: string | undefined, b: string | undefined): string | null {
+    if (a === undefined && b === undefined) return null;
+    try {
+        return (BigInt(a ?? '0') + BigInt(b ?? '0')).toString();
+    } catch {
+        return null;
+    }
 }
 
 // bluechip-per-token price from micro amounts (decimals cancel: both
@@ -116,20 +132,21 @@ export function parseTxEvents(ctx: TxContext, events: RawEvent[]): ParsedTx {
                     pool,
                     committer: a['committer'],
                     phase,
-                    // funding/post-threshold use commit_amount_*; the
-                    // threshold-crossing path reports total_amount_*.
+                    // funding/active/threshold_hit_exact report commit_amount_*;
+                    // the threshold_crossing (with excess) path reports
+                    // total_amount_bluechip plus a threshold/swap USD split.
                     amount_bluechip: a['commit_amount_bluechip'] ?? a['total_amount_bluechip'] ?? null,
-                    amount_usd: a['commit_amount_usd'] ?? a['total_amount_usd'] ?? null,
+                    amount_usd: a['commit_amount_usd'] ?? sumMicro(a['threshold_amount_usd'], a['swap_amount_usd']),
                     usd_raised_after: a['total_usd_raised_after'] ?? null,
                     bluechip_raised_after: a['total_bluechip_raised_after'] ?? null,
                     tokens_received: a['tokens_received'] ?? null,
                 });
-                if (phase === 'threshold-crossing' || phase === 'threshold-hit-exact') {
+                if (phase === 'threshold_crossing' || phase === 'threshold_hit_exact') {
                     out.thresholdCrossings.push({ pool, ts: ctx.ts });
                 }
-                // A post-threshold commit is economically a buy through
-                // the AMM — surface it in the trade feed too.
-                if (phase === 'post-threshold' && a['swap_amount_bluechip'] && a['tokens_received']) {
+                // A post-threshold ("active") commit is economically a buy
+                // through the AMM — surface it in the trade feed too.
+                if (phase === 'active' && a['swap_amount_bluechip'] && a['tokens_received']) {
                     out.trades.push({
                         ...base,
                         pool,
