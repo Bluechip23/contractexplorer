@@ -25,9 +25,62 @@ import CodeBlock from '../components/universal/CodeBlock';
 import SectionCard from '../components/universal/DocSectionCard';
 
 
-const scriptTagsCode = `<!-- CosmJS — Required for all BlueChip interactions -->
-<script src="https://unpkg.com/@cosmjs/cosmwasm-stargate@0.32.4/build/bundle.js"></script>
-<script src="https://unpkg.com/@cosmjs/stargate@0.32.4/build/bundle.js"></script>`;
+const widgetQuickStartCode = `<!-- 1. Load the BlueChip widget (self-contained, no other scripts needed) -->
+<script src="https://cdn.jsdelivr.net/gh/Bluechip23/bluechipblockexplorer@main/widget/dist/bluechip-widget.min.js"><\/script>
+
+<!-- 2. Subscribe button — the ONLY thing you edit is your pool address -->
+<div data-bluechip-subscribe data-pool="bluechip1YOUR_POOL_ADDRESS" data-amount="25"></div>
+
+<!-- 3. Optional: gate content behind a subscription -->
+<div data-bluechip-gate data-pool="bluechip1YOUR_POOL_ADDRESS" data-min-usd="5">
+    Subscriber-only content.
+</div>`;
+
+// Set a site-wide default pool (and optionally override endpoints) once,
+// so individual buttons don't need data-pool repeated on each one.
+const widgetInitCode = `<script src="https://cdn.jsdelivr.net/gh/Bluechip23/bluechipblockexplorer@main/widget/dist/bluechip-widget.min.js"><\/script>
+<script>
+  BluechipWidget.init({
+    pool: "bluechip1YOUR_POOL_ADDRESS",   // default pool for every widget on the page
+    // rpc / rest / chainId default to BlueChip mainnet — override only if you self-host a node
+  });
+<\/script>
+
+<!-- Now buttons can omit data-pool entirely -->
+<div data-bluechip-subscribe data-amount="25"></div>`;
+
+// Build your own UI with the same primitives the buttons use.
+const widgetJsApiCode = `<script>
+  // Connect Keplr (registers the BlueChip chain automatically)
+  const { address } = await BluechipWidget.connect();
+
+  // Subscribe: commit bluechip to a pool. Returns the tx hash.
+  const { txHash } = await BluechipWidget.subscribe({
+    pool: "bluechip1YOUR_POOL_ADDRESS",
+    amount: 25,                    // whole BLUECHIP; converted to micro-units for you
+  });
+
+  // Check a wallet's subscription (read-only — no signing needed).
+  const gate = await BluechipWidget.checkSubscription({
+    pool: "bluechip1YOUR_POOL_ADDRESS",
+    address,                       // omit to use the connected wallet
+    minUsd: 5,                     // threshold in lifetime USD committed
+  });
+  if (gate.subscribed) {
+    console.log("Subscriber — $" + gate.totalUsd + " committed");
+  }
+<\/script>`;
+
+// CosmJS ships no browser bundle (unpkg .../build/bundle.js 404s), so the
+// manual path loads it as an ES module and exposes the global the
+// snippets below expect.
+const scriptTagsCode = `<!-- CosmJS — required for the hand-rolled snippets below.
+     Bundler users: npm install @cosmjs/cosmwasm-stargate@0.32.4 instead. -->
+<script type="module">
+    import * as cosmwasm from "https://esm.sh/@cosmjs/cosmwasm-stargate@0.32.4";
+    window.CosmWasmClient = cosmwasm;   // snippets use CosmWasmClient.SigningCosmWasmClient
+    window.dispatchEvent(new Event("cosmjs-ready"));
+<\/script>`;
 
 const configCode = `<script>
 // ============================================================
@@ -1209,8 +1262,13 @@ const fullExampleCode = `<!DOCTYPE html>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>BlueChip - My Creator Page</title>
-    <script src="https://unpkg.com/@cosmjs/cosmwasm-stargate@0.32.4/build/bundle.js"><\/script>
-    <script src="https://unpkg.com/@cosmjs/stargate@0.32.4/build/bundle.js"><\/script>
+    <!-- CosmJS has no prebuilt browser bundle; load it as an ES module
+         and expose the global the handlers below use. -->
+    <script type="module">
+        import * as cosmwasm from "https://esm.sh/@cosmjs/cosmwasm-stargate@0.32.4";
+        window.CosmWasmClient = cosmwasm;
+        window.dispatchEvent(new Event("cosmjs-ready"));
+    <\/script>
     <style>
         body {
             font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif;
@@ -1317,7 +1375,7 @@ const fullExampleCode = `<!DOCTYPE html>
 
 const tocItems = [
     { num: '1', title: 'Prerequisites — What You Need First', id: 'prerequisites' },
-    { num: '2', title: 'Quick Start — Add the Script Tags', id: 'quick-start' },
+    { num: '2', title: 'Quick Start — The Embeddable Widget', id: 'quick-start' },
     { num: '3', title: 'Connecting to Keplr Wallet', id: 'keplr-wallet' },
     { num: '4', title: 'Subscribe Button (Commit)', id: 'subscribe' },
     { num: '5', title: 'Buy Button (Swap Bluechips for Creator Tokens)', id: 'buy' },
@@ -1414,18 +1472,139 @@ const IntegrationGuidePage: React.FC = () => {
                         </SectionCard>
 
                         {/* Section 2: Quick Start */}
-                        <SectionCard id="quick-start" number="2" title="Quick Start — Add the Script Tags">
+                        <SectionCard id="quick-start" number="2" title="Quick Start — The Embeddable Widget">
+                            <Alert severity="success" sx={{ mb: 2 }}>
+                                <strong>This is the recommended path for most creators.</strong> If all you want is a
+                                Subscribe button and/or subscriber-gated content, you do not need any of the hand-written
+                                code in the rest of this guide — drop in the widget below and you are done.
+                            </Alert>
                             <Typography paragraph>
-                                Add these two script tags to your HTML page, either in the <code>&lt;head&gt;</code> or
-                                right before <code>&lt;/body&gt;</code>. These load the CosmJS library that talks to the blockchain.
+                                The widget is a single self-contained script (the wallet library is compiled in — nothing
+                                else to load). Paste the script tag once, then drop a tagged <code>&lt;div&gt;</code>
+                                wherever you want a button. The <strong>only value you must supply is your pool address</strong>;
+                                the chain, endpoints, denom, and gas settings all default to BlueChip mainnet.
                             </Typography>
-                            <CodeBlock code={scriptTagsCode} language="HTML" />
+                            <CodeBlock code={widgetQuickStartCode} language="HTML" />
 
-                            <Typography paragraph sx={{ mt: 2 }}>
-                                Then add this configuration block. <strong>Replace the placeholder values</strong> with
-                                your actual addresses:
+                            <Alert severity="info" sx={{ my: 2 }}>
+                                <strong>Fully portable.</strong> The same two lines work on any website that lets you add
+                                HTML — a custom site, WordPress, Webflow, a static page on Netlify or GitHub Pages. Nothing
+                                is tied to a domain or an API key, so you can move the button between pages, run it on
+                                several sites at once, or hand it to someone else to embed. Prefer not to depend on the CDN?
+                                Download <code>widget/dist/bluechip-widget.min.js</code> and host it next to your own site.
+                            </Alert>
+
+                            <Typography variant="h6" gutterBottom sx={{ mt: 3 }}>Configuration attributes</Typography>
+                            <Typography paragraph>
+                                Configure each widget right on the element with <code>data-</code> attributes — no
+                                JavaScript required:
                             </Typography>
-                            <CodeBlock code={configCode} language="HTML" />
+                            <TableContainer component={Paper} variant="outlined" sx={{ mb: 2 }}>
+                                <Table size="small">
+                                    <TableHead>
+                                        <TableRow>
+                                            <TableCell><strong>Attribute</strong></TableCell>
+                                            <TableCell><strong>Applies to</strong></TableCell>
+                                            <TableCell><strong>What it does</strong></TableCell>
+                                        </TableRow>
+                                    </TableHead>
+                                    <TableBody>
+                                        <TableRow>
+                                            <TableCell><code>data-bluechip-subscribe</code></TableCell>
+                                            <TableCell>marker</TableCell>
+                                            <TableCell>Renders a Subscribe (commit) button on this element.</TableCell>
+                                        </TableRow>
+                                        <TableRow>
+                                            <TableCell><code>data-bluechip-gate</code></TableCell>
+                                            <TableCell>marker</TableCell>
+                                            <TableCell>Hides this element's content until the viewer's wallet qualifies.</TableCell>
+                                        </TableRow>
+                                        <TableRow>
+                                            <TableCell><code>data-pool</code></TableCell>
+                                            <TableCell>both</TableCell>
+                                            <TableCell>Creator pool address. Falls back to the pool set in <code>init()</code>.</TableCell>
+                                        </TableRow>
+                                        <TableRow>
+                                            <TableCell><code>data-amount</code></TableCell>
+                                            <TableCell>subscribe</TableCell>
+                                            <TableCell>Pre-filled amount, in whole BLUECHIP.</TableCell>
+                                        </TableRow>
+                                        <TableRow>
+                                            <TableCell><code>data-fixed-amount</code></TableCell>
+                                            <TableCell>subscribe</TableCell>
+                                            <TableCell>Hide the amount input and always commit <code>data-amount</code>.</TableCell>
+                                        </TableRow>
+                                        <TableRow>
+                                            <TableCell><code>data-min-usd</code></TableCell>
+                                            <TableCell>gate</TableCell>
+                                            <TableCell>Minimum lifetime USD committed required to unlock.</TableCell>
+                                        </TableRow>
+                                        <TableRow>
+                                            <TableCell><code>data-label</code></TableCell>
+                                            <TableCell>both</TableCell>
+                                            <TableCell>Custom button text.</TableCell>
+                                        </TableRow>
+                                        <TableRow>
+                                            <TableCell><code>data-denied-text</code></TableCell>
+                                            <TableCell>gate</TableCell>
+                                            <TableCell>Message shown when the viewer doesn't qualify.</TableCell>
+                                        </TableRow>
+                                    </TableBody>
+                                </Table>
+                            </TableContainer>
+                            <Typography paragraph>
+                                The widget injects its own scoped styles (every class is prefixed <code>bcw-</code>, so
+                                nothing leaks into or out of your page) and you can restyle it freely with your own CSS.
+                            </Typography>
+
+                            <Typography variant="h6" gutterBottom sx={{ mt: 3 }}>Set a default pool once</Typography>
+                            <Typography paragraph>
+                                If every button on a page points at the same pool, set it once with <code>init()</code> and
+                                omit <code>data-pool</code> from the individual elements:
+                            </Typography>
+                            <CodeBlock code={widgetInitCode} language="HTML" />
+
+                            <Typography variant="h6" gutterBottom sx={{ mt: 3 }}>JavaScript API (for custom UIs)</Typography>
+                            <Typography paragraph>
+                                The same primitives the buttons use are exposed on <code>window.BluechipWidget</code>, so
+                                you can wire your own elements instead of the built-in buttons:
+                            </Typography>
+                            <CodeBlock code={widgetJsApiCode} language="JavaScript" />
+
+                            <Alert severity="warning" sx={{ mt: 2 }}>
+                                The <code>data-bluechip-gate</code> / <code>checkSubscription</code> gate is a
+                                <strong> client-side convenience</strong> — it hides DOM until the check passes, which is
+                                perfect for perks and soft-gating, but anyone can bypass it with browser dev tools. To
+                                protect content that truly matters, verify wallet ownership server-side (Section 13) and run
+                                the subscription lookup from your backend.
+                            </Alert>
+
+                            <Accordion sx={{ mt: 3 }}>
+                                <AccordionSummary expandIcon={<ExpandMoreIcon />}>
+                                    <Typography variant="subtitle1" fontWeight="bold">
+                                        Advanced: load CosmJS yourself (only for the hand-written buttons below)
+                                    </Typography>
+                                </AccordionSummary>
+                                <AccordionDetails>
+                                    <Typography paragraph>
+                                        Sections 4–13 show fully hand-written buttons that talk to the chain directly through
+                                        CosmJS, for developers who want complete control. Those snippets need CosmJS loaded
+                                        and a config block — the widget above needs neither.
+                                    </Typography>
+                                    <Alert severity="warning" sx={{ mb: 2 }}>
+                                        CosmJS publishes no ready-made browser bundle — a plain{' '}
+                                        <code>&lt;script src=&quot;unpkg.com/.../build/bundle.js&quot;&gt;</code> tag 404s. Sites
+                                        with a bundler should <code>npm install @cosmjs/cosmwasm-stargate</code>; plain HTML
+                                        sites can load it as an ES module from a CJS-to-ESM CDN:
+                                    </Alert>
+                                    <CodeBlock code={scriptTagsCode} language="HTML" />
+                                    <Typography paragraph sx={{ mt: 2 }}>
+                                        Then add this configuration block. <strong>Replace the placeholder values</strong> with
+                                        your actual addresses:
+                                    </Typography>
+                                    <CodeBlock code={configCode} language="HTML" />
+                                </AccordionDetails>
+                            </Accordion>
                         </SectionCard>
 
                         {/* Section 3: Keplr Wallet */}
