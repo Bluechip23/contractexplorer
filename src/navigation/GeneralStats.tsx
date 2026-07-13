@@ -1,117 +1,172 @@
 import { Button, Paper, Stack, TextField, Typography } from '@mui/material';
 import React, { useEffect, useState } from 'react';
-import { fetchTransaction, fetchWallet, fetchBlock } from './SearchBarLogic';
 import { useNavigate } from 'react-router-dom';
-import { rpcEndpoint, apiEndpoint, denom } from '../components/universal/IndividualPage.const';
-import { queryBluechipOraclePrice } from '../utils/contractQueries';
+import { factoryAddress, profilesApiUrl } from '../components/universal/IndividualPage.const';
+import { getCosmWasmClient } from '../utils/contractQueries';
 import { formatMicroAmount } from '../utils/bigintMath';
-import axios from 'axios';
+import { NATIVE_SYMBOL } from '../defi/types';
+
+// Search + protocol stats strip. Everything here reads from the factory /
+// creator-pool contracts (and the optional profiles service) — no chain
+// module endpoints. All stats degrade to an em-dash when unreachable.
+
+async function smartQuery<T>(contract: string, msg: Record<string, unknown>): Promise<T> {
+    const client = await getCosmWasmClient();
+    return client.queryContractSmart(contract, msg) as Promise<T>;
+}
+
+interface ProfileSearchResult {
+    name: string;
+    wallet_address: string;
+    pool_address: string | null;
+}
+
+async function searchProfiles(q: string): Promise<ProfileSearchResult[]> {
+    if (!profilesApiUrl) return [];
+    try {
+        const res = await fetch(`${profilesApiUrl}/search?q=${encodeURIComponent(q)}`);
+        if (!res.ok) return [];
+        const body = await res.json();
+        return Array.isArray(body?.results) ? body.results : [];
+    } catch {
+        return [];
+    }
+}
 
 const GeneralStats: React.FC = () => {
     const [searchValue, setSearchValue] = useState('');
-    const [recentBlock, setRecentBlock] = useState(0);
-    const [totalSupply, setTotalSupply] = useState('');
-    const [totalStaked, setTotalStaked] = useState('');
-    const [inflation, setInflation] = useState('');
     const [price, setPrice] = useState('');
-    const [transactionsInblock, setTransactionsInblock] = useState(0);
+    const [threshold, setThreshold] = useState('');
+    const [poolCount, setPoolCount] = useState('');
     const [error, setError] = useState('');
+    const [searching, setSearching] = useState(false);
     const navigateTo = useNavigate();
 
     useEffect(() => {
-        const controller = new AbortController();
+        let cancelled = false;
 
-        const fetchAllStats = async () => {
-            const [statusResult, stakingResult, supplyResult, inflationResult, priceResult] = await Promise.allSettled([
-                axios.get(`${rpcEndpoint}/status`, { signal: controller.signal }),
-                axios.get(`${apiEndpoint}/cosmos/staking/v1beta1/pool`, { signal: controller.signal }),
-                axios.get(`${apiEndpoint}/cosmos/bank/v1beta1/supply/by_denom?denom=${denom}`, { signal: controller.signal }),
-                axios.get(`${apiEndpoint}/cosmos/mint/v1beta1/inflation`, { signal: controller.signal }),
-                queryBluechipOraclePrice(),
-            ]);
+        const fetchStats = async () => {
+            // Live OSMO/USD TWAP the contracts use to value commits.
+            try {
+                const conv = await smartQuery<{ rate_used: string }>(factoryAddress, {
+                    pool_factory_query: { convert_native_to_usd: { amount: '1000000' } },
+                });
+                if (!cancelled && conv?.rate_used) {
+                    setPrice(`$${formatMicroAmount(conv.rate_used, 6, 4)}`);
+                }
+            } catch { /* factory unreachable — leave the dash */ }
 
-            if (controller.signal.aborted) return;
+            try {
+                const cfg = await smartQuery<{ factory: { commit_threshold_limit_usd: string } }>(
+                    factoryAddress,
+                    { factory: {} },
+                );
+                if (!cancelled && cfg?.factory?.commit_threshold_limit_usd) {
+                    setThreshold(`$${formatMicroAmount(cfg.factory.commit_threshold_limit_usd, 6, 0)}`);
+                }
+            } catch { /* ignore */ }
 
-            if (statusResult.status === 'fulfilled') {
-                const latestHeight = statusResult.value.data.result.sync_info.latest_block_height;
-                setRecentBlock(latestHeight);
-                try {
-                    const blockResponse = await axios.get(`${rpcEndpoint}/block?height=${latestHeight}`, { signal: controller.signal });
-                    if (!controller.signal.aborted) {
-                        setTransactionsInblock(blockResponse.data.result.block.data.txs.length);
-                    }
-                } catch {}
-            }
-
-            if (stakingResult.status === 'fulfilled') {
-                setTotalStaked(formatMicroAmount(stakingResult.value.data.pool.bonded_tokens, 6, 0));
-            }
-
-            if (supplyResult.status === 'fulfilled') {
-                setTotalSupply(formatMicroAmount(supplyResult.value.data.amount?.amount, 6, 0));
-            }
-
-            if (inflationResult.status === 'fulfilled') {
-                const rate = parseFloat(inflationResult.value.data.inflation);
-                if (Number.isFinite(rate)) setInflation(`${(rate * 100).toFixed(2)}%`);
-            }
-
-            // Oracle price is micro-USD per bluechip.
-            if (priceResult.status === 'fulfilled' && priceResult.value) {
-                setPrice(`$${formatMicroAmount(priceResult.value.price, 6, 4)}`);
-            }
+            try {
+                const res = await smartQuery<{ pools: unknown[] }>(factoryAddress, {
+                    pools: { start_after: null, limit: 100 },
+                });
+                if (!cancelled && Array.isArray(res?.pools)) {
+                    setPoolCount(res.pools.length >= 100 ? '100+' : String(res.pools.length));
+                }
+            } catch { /* ignore */ }
         };
 
-        fetchAllStats();
-        return () => controller.abort();
+        fetchStats();
+        return () => { cancelled = true; };
     }, []);
 
+    // Resolve the search input in priority order:
+    //   1. osmo1... contract address registered as a pool  -> pool page
+    //   2. osmo1... / name known to the profiles service   -> creator links page
+    //   3. bare number                                     -> pool id lookup
+    //   4. anything else                                   -> creator directory search
     const handleSearch = async () => {
+        const q = searchValue.trim();
+        if (!q) return;
         setError('');
+        setSearching(true);
         try {
-            if (isNaN(Number(searchValue))) {
-                if (searchValue.length === 64) {
-                    const result = await fetchTransaction(searchValue);
-                    navigateTo(`/transactionpage/${result?.hash}`);
-                } else {
-                    const result = await fetchWallet(searchValue);
-                    navigateTo(`/wallet/${result?.address}`);
+            if (/^osmo1[0-9a-z]{20,}$/.test(q)) {
+                try {
+                    const registered = await smartQuery<{ pool_id: number } | null>(factoryAddress, {
+                        pool_by_address: { pool_addr: q },
+                    });
+                    if (registered) {
+                        navigateTo(`/creatorpool/${q}`);
+                        return;
+                    }
+                } catch { /* not a registered pool — keep resolving */ }
+
+                const profiles = await searchProfiles(q);
+                if (profiles.length > 0) {
+                    navigateTo(`/creator/${profiles[0].name || profiles[0].wallet_address}`);
+                    return;
                 }
-            } else {
-                const result = await fetchBlock(Number(searchValue));
-                navigateTo(`/blockpage/${result?.id}`);
+                if (q.length > 50) {
+                    // Contract-length address that isn't a registered pool:
+                    // assume it's a creator token CW20.
+                    navigateTo(`/creatortoken/${q}`);
+                    return;
+                }
+                setError('No creator pool or links page found for that address.');
+                return;
             }
-        } catch (err) {
-            setError('Error fetching data. Please ensure the input is valid.');
+
+            if (/^\d+$/.test(q)) {
+                const id = Number(q);
+                const res = await smartQuery<{ pools: Array<{ pool_id: number; pool_addr: string }> }>(
+                    factoryAddress,
+                    { pools: { start_after: id > 0 ? id - 1 : null, limit: 1 } },
+                );
+                const hit = res?.pools?.[0];
+                if (hit && hit.pool_id === id) {
+                    navigateTo(`/creatorpool/${hit.pool_addr}`);
+                    return;
+                }
+                setError(`No creator pool with id ${id}.`);
+                return;
+            }
+
+            // Creator name search via the profiles service.
+            const profiles = await searchProfiles(q);
+            if (profiles.length === 1) {
+                navigateTo(`/creator/${profiles[0].name}`);
+                return;
+            }
+            navigateTo(`/creators?q=${encodeURIComponent(q)}`);
+        } catch {
+            setError('Search failed. Please check the input and try again.');
+        } finally {
+            setSearching(false);
         }
     };
+
     return (
         <Paper elevation={6} sx={{ marginBottom: '10px', padding: { xs: '8px', md: '12px' } }}>
             <Stack spacing={2}>
                 <Stack direction={{ xs: 'column', sm: 'row' }} spacing={2}>
                     <TextField
-                        label='Search Wallet, Transaction Hash, or Block Height'
+                        label='Search Creator Name, Pool Contract, Pool ID, or Token'
                         size='small'
                         value={searchValue}
                         onChange={(e) => setSearchValue(e.target.value)}
+                        onKeyDown={(e) => { if (e.key === 'Enter') handleSearch(); }}
                         sx={{ width: { xs: '100%', sm: '50%' } }}
                     />
-                    <Button variant='contained' onClick={handleSearch}>
-                        Search
+                    <Button variant='contained' onClick={handleSearch} disabled={searching}>
+                        {searching ? 'Searching…' : 'Search'}
                     </Button>
                 </Stack>
                 {error && <Typography variant="body2" color="error">{error}</Typography>}
-                <Stack spacing={1}>
-                    <Stack direction={{ xs: 'column', md: 'row' }} spacing={{ xs: 1, md: 4 }} flexWrap="wrap">
-                        <Typography variant="body2">Blue Chip Price: {price || '—'}</Typography>
-                        <Typography variant="body2">Total Supply: {totalSupply || '—'}</Typography>
-                        <Typography variant="body2">Total Staked: {totalStaked || '—'}</Typography>
-                        <Typography variant="body2">Annual Inflation: {inflation || '—'}</Typography>
-                    </Stack>
-                    <Stack direction={{ xs: 'column', md: 'row' }} spacing={{ xs: 1, md: 4 }} flexWrap="wrap">
-                        <Typography variant="body2">Block Height: {recentBlock}</Typography>
-                        <Typography variant="body2">Txs in last block: {transactionsInblock}</Typography>
-                    </Stack>
+                <Stack direction={{ xs: 'column', md: 'row' }} spacing={{ xs: 1, md: 4 }} flexWrap="wrap">
+                    <Typography variant="body2">{NATIVE_SYMBOL} Price (TWAP): {price || '—'}</Typography>
+                    <Typography variant="body2">Commit Threshold: {threshold || '—'}</Typography>
+                    <Typography variant="body2">Creator Pools: {poolCount || '—'}</Typography>
                 </Stack>
             </Stack>
         </Paper>

@@ -10,6 +10,7 @@ import VolunteerActivismIcon from '@mui/icons-material/VolunteerActivism';
 import { useThemeMode } from '../context/ThemeContext';
 import { useWallet } from '../context/WalletContext';
 import { formatMicroAmount } from '../utils/bigintMath';
+import { NATIVE_SYMBOL } from '../defi/types';
 
 // Community destinations surfaced in the top bar. Overridable at build
 // time so the canonical invite/repo can roll without redeploying code.
@@ -54,7 +55,7 @@ const BlockExpTopBar: React.FC = () => {
                         fontSize: 'x-large',
                     }}
                 >
-                    Bluechip Explorer
+                    BlueChip Creators
                 </RouterLink>
                 {address ? (
                     <MuiLink component={RouterLink} to="/defi?tab=commit" sx={topBarLinkSx}>
@@ -105,7 +106,7 @@ const BlockExpTopBar: React.FC = () => {
                     <>
                         {balance && (
                             <Typography variant="body2" sx={{ mr: 1 }}>
-                                {formatMicroAmount(balance.amount)} bluechip
+                                {formatMicroAmount(balance.amount)} {NATIVE_SYMBOL}
                             </Typography>
                         )}
                         <Typography variant="body2" sx={{ fontFamily: 'monospace', fontSize: '0.8rem' }}>

@@ -9,19 +9,14 @@ import {
     ListSubheader,
 } from '@mui/material';
 import HomeIcon from '@mui/icons-material/Home';
-import GavelIcon from '@mui/icons-material/Gavel';
 import HotTubIcon from '@mui/icons-material/HotTub';
-import TokenIcon from '@mui/icons-material/Token';
-import ReceiptIcon from '@mui/icons-material/Receipt';
 import MonetizationOnIcon from '@mui/icons-material/MonetizationOn';
-import AccountBalanceIcon from '@mui/icons-material/AccountBalance';
-import HowToVoteIcon from '@mui/icons-material/HowToVote';
-import SwapHorizIcon from '@mui/icons-material/SwapHoriz';
-import CodeIcon from '@mui/icons-material/Code';
 import TipsAndUpdatesIcon from '@mui/icons-material/TipsAndUpdates';
 import RocketLaunchIcon from '@mui/icons-material/RocketLaunch';
 import LinkIcon from '@mui/icons-material/Link';
 import BrushIcon from '@mui/icons-material/Brush';
+import PaletteIcon from '@mui/icons-material/Palette';
+import PersonSearchIcon from '@mui/icons-material/PersonSearch';
 import { Link, useLocation } from 'react-router-dom';
 
 type Item = {
@@ -33,11 +28,9 @@ type Item = {
 
 const explorerItems: Item[] = [
     { title: 'Home', icon: <HomeIcon />, link: '/frontpage' },
-    { title: 'Transactions', icon: <ReceiptIcon />, link: '/recenttransactions' },
-    { title: 'Blocks', icon: <TokenIcon />, link: '/recentblocks' },
     { title: 'Creator Pools', icon: <HotTubIcon />, link: '/topcreatorpools' },
-    { title: 'Validators', icon: <GavelIcon />, link: '/topvalidators' },
     { title: 'Creator Tokens', icon: <MonetizationOnIcon />, link: '/toptokens' },
+    { title: 'Find Creators', icon: <PersonSearchIcon />, link: '/creators' },
 ];
 
 // "My Portfolio" views are always visible so holdings / subscriptions /
@@ -48,7 +41,7 @@ const portfolioItems: Item[] = [
         title: 'My Holdings',
         subtitle: 'Tokens, commits & positions',
         icon: <LinkIcon />,
-        link: '/portfolio/chain',
+        link: '/portfolio/holdings',
     },
     {
         title: 'Creator Portfolio',
@@ -56,14 +49,16 @@ const portfolioItems: Item[] = [
         icon: <BrushIcon />,
         link: '/portfolio/creator',
     },
+    {
+        title: 'My Links Page',
+        subtitle: 'Your public link-in-bio page',
+        icon: <PaletteIcon />,
+        link: '/mylinks',
+    },
 ];
 
-const chainItems: Item[] = [
+const contractItems: Item[] = [
     { title: 'Creator Economy', icon: <RocketLaunchIcon />, link: '/defi' },
-    { title: 'Governance', icon: <HowToVoteIcon />, link: '/governance' },
-    { title: 'Staking', icon: <AccountBalanceIcon />, link: '/staking' },
-    { title: 'IBC Transfers', icon: <SwapHorizIcon />, link: '/ibc' },
-    { title: 'Contract Explorer', icon: <CodeIcon />, link: '/contract-explorer' },
     { title: 'Integration Guide', icon: <TipsAndUpdatesIcon />, link: '/integration-guide' },
 ];
 
@@ -102,7 +97,7 @@ const BlockExpSideBar: React.FC = () => {
             ))}
 
             <Divider sx={{ my: 1 }} />
-            {chainItems.map((item) => (
+            {contractItems.map((item) => (
                 <SidebarLink key={item.link} item={item} selected={location.pathname === item.link} />
             ))}
         </List>

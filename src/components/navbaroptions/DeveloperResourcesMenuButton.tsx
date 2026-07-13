@@ -2,8 +2,8 @@ import React from 'react';
 import NavMenuButton from './NavMenuButton';
 
 const items = [
+    { name: 'Integration Guide', link: '/integration-guide' },
     { name: 'APIs', link: '/comingsoonpage' },
-    { name: 'Smart Contract Explorer', link: '/contract-explorer' },
 ];
 
 const DeveloperResourcesMenuButton: React.FC = () => (

@@ -8,11 +8,14 @@
 import type { SigningCosmWasmClient } from '@cosmjs/cosmwasm-stargate';
 import type { Coin } from '@cosmjs/stargate';
 import { compareMicro } from './bigintMath';
+import { CHAIN_CONFIG } from '../defi/types';
 
 // SECURITY: The only chain this frontend is allowed to broadcast against.
 // Any other chain ID reported by the wallet must block the transaction.
-export const EXPECTED_CHAIN_ID = 'bluechip-3';
-export const EXPECTED_BECH32_PREFIX = 'bluechip';
+// Follows the network selection in defi/types.ts (osmo-test-5 by default,
+// osmosis-1 when REACT_APP_NETWORK=mainnet).
+export const EXPECTED_CHAIN_ID = CHAIN_CONFIG.chainId;
+export const EXPECTED_BECH32_PREFIX = 'osmo';
 
 // SECURITY: Slippage bounds enforced on every swap/liquidity action to
 // prevent sandwich attacks (too high) and guaranteed revert (too low).
@@ -136,7 +139,7 @@ export interface Bech32ValidationResult {
 // SECURITY: Verifies a Cosmos bech32 address against a known prefix.
 // This protects against:
 //   - typos (checksum catches 1-char edits)
-//   - cross-chain confusion (e.g. a juno1... address being used against bluechip-3)
+//   - cross-chain confusion (e.g. a juno1... address being used against the expected chain)
 //   - empty / zero / whitespace inputs
 // Callers should ALWAYS use this before building a MsgExecuteContract.
 export function validateBech32Address(
@@ -229,7 +232,7 @@ export function validateSlippage(rawPct: string | number): SlippageValidationRes
 // ============================================================================
 
 // SECURITY: Before every transaction, check that the wallet is pointed at
-// bluechip-3. If the user has the wrong network selected in Keplr/Leap the
+// the expected Osmosis chain. If the user has the wrong network selected in Keplr/Leap the
 // transaction must be blocked — never silently broadcast to the wrong chain.
 export async function assertWalletOnExpectedChain(
     client: SigningCosmWasmClient | null,
