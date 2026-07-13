@@ -14,7 +14,7 @@ const NoPoolsView: React.FC<NoPoolsViewProps> = ({ onCreatePool }) => (
                 You have not created a pool yet
             </Typography>
             <Typography variant="body2" color="text.secondary" sx={{ mb: 3, maxWidth: 480, mx: 'auto' }}>
-                Launch your own creator token and liquidity pool. Subscribers will commit bluechip
+                Launch your own creator token and liquidity pool. Subscribers will commit OSMO
                 to fund your pool, and you'll earn fees on every transaction.
             </Typography>
             <Button variant="contained" size="large" onClick={onCreatePool} startIcon={<RocketLaunchIcon />}>

@@ -75,7 +75,6 @@ export interface StatementLine {
 export interface IndexedPool {
     address: string;
     pool_id: number | null;
-    kind: 'commit' | 'standard';
     created_height: number;
     created_at: number;                 // unix seconds
     threshold_crossed_at: number | null;

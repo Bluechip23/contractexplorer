@@ -3,32 +3,32 @@ import { describeWasmExecute } from './txDecoder';
 const b64 = (obj: unknown) => btoa(JSON.stringify(obj));
 
 describe('describeWasmExecute', () => {
-    it('labels a commit with its bluechip amount', () => {
+    it('labels a commit with its OSMO amount', () => {
         const info = describeWasmExecute(b64({
             commit: {
-                asset: { info: { bluechip: { denom: 'ubluechip' } }, amount: '25000000' },
+                asset: { info: { bluechip: { denom: 'uosmo' } }, amount: '25000000' },
                 transaction_deadline: null,
             },
         }));
         expect(info?.label).toBe('Commit');
         expect(info?.detail).toContain('25');
-        expect(info?.detail).toContain('bluechip');
+        expect(info?.detail).toContain('OSMO');
     });
 
     it('labels a native simple_swap as a buy of creator tokens', () => {
         const info = describeWasmExecute({
             simple_swap: {
-                offer_asset: { info: { bluechip: { denom: 'ubluechip' } }, amount: '1000000' },
+                offer_asset: { info: { bluechip: { denom: 'uosmo' } }, amount: '1000000' },
             },
         });
         expect(info?.label).toBe('Swap');
-        expect(info?.detail).toContain('bluechip for creator tokens');
+        expect(info?.detail).toContain('OSMO for creator tokens');
     });
 
     it('recognizes the CW20 send + swap hook as a sell', () => {
         const info = describeWasmExecute(b64({
             send: {
-                contract: 'bluechip1pool',
+                contract: 'osmo1pool',
                 amount: '4000000',
                 msg: b64({ swap: { max_spread: '0.005' } }),
             },
@@ -52,7 +52,7 @@ describe('describeWasmExecute', () => {
                 token_info: { name: 'Brand Token', symbol: 'BRAND', decimal: 6 },
             },
         });
-        expect(info?.label).toBe('Create Commit Pool');
+        expect(info?.label).toBe('Create Creator Pool');
         expect(info?.detail).toContain('BRAND');
     });
 

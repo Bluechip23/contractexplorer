@@ -1,8 +1,9 @@
 import { safeBigInt } from './bigintMath';
 import { sanitizeOnChainString } from './security';
+import { NATIVE_DENOM } from '../defi/types';
 import * as chain from './chainQueries';
 
-const MOCK_WALLET = 'bluechip1q2w3e4r5t6y7u8i9o0pzxcvbnmasdfghjkl42';
+const MOCK_WALLET = 'osmo1q2w3e4r5t6y7u8i9o0pzxcvbnmasdfghjkl42';
 
 
 export interface PoolStateResponseForFactory {
@@ -100,29 +101,44 @@ export interface CW20TokenInfo {
     total_supply: string;
 }
 
+// Per-pool threshold-payout splits (creator-token mints applied when a
+// commit pool crosses its threshold). Mirrors the factory's
+// `ThresholdPayoutAmounts` struct — Uint128 micro-token amounts as strings.
+export interface ThresholdPayoutAmounts {
+    creator_reward_amount: string;
+    bluechip_reward_amount: string;
+    pool_seed_amount: string;
+    commit_return_amount: string;
+}
+
 // Mirrors the factory's FactoryInstantiate struct (returned by the
 // `factory {}` query wrapped as `{ factory: {...} }`).
 export interface FactoryConfig {
     factory_admin_address: string;
+    // Commit threshold, USD-denominated with 6 decimals
+    // (testnet: 20000000 = $20; mainnet: 25000000000 = $25,000).
     commit_threshold_limit_usd: string;
-    pyth_contract_addr_for_conversions: string;
-    pyth_atom_usd_price_feed_id: string;
     cw20_token_contract_id: number;
     cw721_nft_contract_id: number;
     create_pool_wasm_contract_id: number;
-    standard_pool_wasm_contract_id: number;
     bluechip_wallet_address: string;
     commit_fee_bluechip: string;
     commit_fee_creator: string;
     max_bluechip_lock_per_pool: string;
     creator_excess_liquidity_lock_days: number;
-    atom_bluechip_anchor_pool_address: string;
-    bluechip_mint_contract_address: string | null;
+    // Canonical native bank denom pools pair against (uosmo on Osmosis).
     bluechip_denom: string;
-    atom_denom: string;
-    // USD (6 decimals) fee charged for BOTH create and create_standard_pool,
-    // paid in bluechip at the oracle rate. Zero = fee disabled.
-    standard_pool_creation_fee_usd: string;
+    // Osmosis x/twap pricing route: pool id + USD-stable quote denom +
+    // arithmetic-TWAP lookback window (seconds, default 600).
+    pricing_pool_id: number;
+    usd_quote_denom: string;
+    twap_window_seconds: number;
+    // Flat fee charged on every `create` call, Uint128 string in base
+    // units of bluechip_denom (uosmo). Enforced via must_pay when > 0;
+    // zero disables the fee (attach no funds then).
+    pool_creation_fee: string;
+    threshold_payout_amounts: ThresholdPayoutAmounts;
+    emergency_withdraw_delay_seconds: number;
     [key: string]: unknown;
 }
 
@@ -301,7 +317,7 @@ const MOCK_COMMITTERS: CommitterInfo[] = [
         last_committed: ((now - 2 * day) * 1000000).toString(),
     },
     {
-        wallet: 'bluechip1whale8k3jx9f7tn2m4qp6rz0sdvwcyahg5e72n',
+        wallet: 'osmo1whale8k3jx9f7tn2m4qp6rz0sdvwcyahg5e72n',
         total_paid_usd: '8400000000',
         total_paid_bluechip: '67200000000',
         last_payment_usd: '3000000000',
@@ -309,7 +325,7 @@ const MOCK_COMMITTERS: CommitterInfo[] = [
         last_committed: ((now - 1 * day) * 1000000).toString(),
     },
     {
-        wallet: 'bluechip1early4m2n7xp8wk5dv3qt6rj0yfscalh9zu8e3',
+        wallet: 'osmo1early4m2n7xp8wk5dv3qt6rj0yfscalh9zu8e3',
         total_paid_usd: '3100000000',
         total_paid_bluechip: '24800000000',
         last_payment_usd: '800000000',
@@ -317,7 +333,7 @@ const MOCK_COMMITTERS: CommitterInfo[] = [
         last_committed: ((now - 18 * day) * 1000000).toString(),
     },
     {
-        wallet: 'bluechip1degen9p4r6t2n7xm3k5wqv8jf0ychlsab2ue6',
+        wallet: 'osmo1degen9p4r6t2n7xm3k5wqv8jf0ychlsab2ue6',
         total_paid_usd: '2750000000',
         total_paid_bluechip: '22000000000',
         last_payment_usd: '2750000000',
@@ -325,7 +341,7 @@ const MOCK_COMMITTERS: CommitterInfo[] = [
         last_committed: ((now - 45 * day) * 1000000).toString(),
     },
     {
-        wallet: 'bluechip1saver2k8f5n3m7wp4xr6qt9jv0ydclhgab1u3e',
+        wallet: 'osmo1saver2k8f5n3m7wp4xr6qt9jv0ydclhgab1u3e',
         total_paid_usd: '1500000000',
         total_paid_bluechip: '12000000000',
         last_payment_usd: '500000000',
@@ -333,7 +349,7 @@ const MOCK_COMMITTERS: CommitterInfo[] = [
         last_committed: ((now - 60 * day) * 1000000).toString(),
     },
     {
-        wallet: 'bluechip1hodl6n3m8k2f5wp4xr7qt0jv9ydclhsab3ue2',
+        wallet: 'osmo1hodl6n3m8k2f5wp4xr7qt0jv9ydclhsab3ue2',
         total_paid_usd: '950000000',
         total_paid_bluechip: '7600000000',
         last_payment_usd: '950000000',
@@ -341,7 +357,7 @@ const MOCK_COMMITTERS: CommitterInfo[] = [
         last_committed: ((now - 75 * day) * 1000000).toString(),
     },
     {
-        wallet: 'bluechip1moon5r7t2n8xm3k4wqp6jf9v0ychlsab2dge1',
+        wallet: 'osmo1moon5r7t2n8xm3k4wqp6jf9v0ychlsab2dge1',
         total_paid_usd: '680000000',
         total_paid_bluechip: '5440000000',
         last_payment_usd: '680000000',
@@ -349,7 +365,7 @@ const MOCK_COMMITTERS: CommitterInfo[] = [
         last_committed: ((now - 150 * day) * 1000000).toString(),
     },
     {
-        wallet: 'bluechip1tiny3m7k2f8n5wp4xr6qt0jv9ydclhsab1ue4',
+        wallet: 'osmo1tiny3m7k2f8n5wp4xr6qt0jv9ydclhsab1ue4',
         total_paid_usd: '250000000',
         total_paid_bluechip: '2000000000',
         last_payment_usd: '250000000',
@@ -360,8 +376,8 @@ const MOCK_COMMITTERS: CommitterInfo[] = [
 
 const MOCK_POOLS: PoolSummary[] = [
     {
-        poolAddress: 'bluechip1pool_alpha_7k3jx9f7tn2m4qp6rz0sdvwcy5e72',
-        creatorTokenAddress: 'bluechip1token_alpha_cw20_contract_addr_placeholder',
+        poolAddress: 'osmo1pool_alpha_7k3jx9f7tn2m4qp6rz0sdvwcy5e72',
+        creatorTokenAddress: 'osmo1token_alpha_cw20_contract_addr_placeholder',
         tokenName: 'Alpha Creator Token',
         tokenSymbol: 'ALPHA',
         tokenDecimals: 6,
@@ -395,8 +411,8 @@ const MOCK_POOLS: PoolSummary[] = [
         totalBluechipRaised: '200000000000',
     },
     {
-        poolAddress: 'bluechip1pool_beta_4m2n7xp8wk5dv3qt6rj0yfscalh9z',
-        creatorTokenAddress: 'bluechip1token_beta_cw20_contract_addr_placeholder',
+        poolAddress: 'osmo1pool_beta_4m2n7xp8wk5dv3qt6rj0yfscalh9z',
+        creatorTokenAddress: 'osmo1token_beta_cw20_contract_addr_placeholder',
         tokenName: 'Beta Stream',
         tokenSymbol: 'BETA',
         tokenDecimals: 6,
@@ -430,8 +446,8 @@ const MOCK_POOLS: PoolSummary[] = [
         totalBluechipRaised: '200000000000',
     },
     {
-        poolAddress: 'bluechip1pool_gamma_9p4r6t2n7xm3k5wqv8jf0ychlsa',
-        creatorTokenAddress: 'bluechip1token_gamma_cw20_contract_addr_placeholder',
+        poolAddress: 'osmo1pool_gamma_9p4r6t2n7xm3k5wqv8jf0ychlsa',
+        creatorTokenAddress: 'osmo1token_gamma_cw20_contract_addr_placeholder',
         tokenName: 'Gamma Gaming',
         tokenSymbol: 'GAMMA',
         tokenDecimals: 6,
@@ -465,8 +481,8 @@ const MOCK_POOLS: PoolSummary[] = [
         totalBluechipRaised: '200000000000',
     },
     {
-        poolAddress: 'bluechip1pool_delta_2k8f5n3m7wp4xr6qt9jv0ydclhga',
-        creatorTokenAddress: 'bluechip1token_delta_cw20_contract_addr_placeholder',
+        poolAddress: 'osmo1pool_delta_2k8f5n3m7wp4xr6qt9jv0ydclhga',
+        creatorTokenAddress: 'osmo1token_delta_cw20_contract_addr_placeholder',
         tokenName: 'Delta Music',
         tokenSymbol: 'DELTA',
         tokenDecimals: 6,
@@ -500,8 +516,8 @@ const MOCK_POOLS: PoolSummary[] = [
         totalBluechipRaised: '134400000000',
     },
     {
-        poolAddress: 'bluechip1pool_epsilon_6n3m8k2f5wp4xr7qt0jv9ydclhs',
-        creatorTokenAddress: 'bluechip1token_epsilon_cw20_contract_addr_placeholder',
+        poolAddress: 'osmo1pool_epsilon_6n3m8k2f5wp4xr7qt0jv9ydclhs',
+        creatorTokenAddress: 'osmo1token_epsilon_cw20_contract_addr_placeholder',
         tokenName: 'Epsilon Art',
         tokenSymbol: 'EPS',
         tokenDecimals: 6,
@@ -565,7 +581,7 @@ const MOCK_POSITIONS: PositionResponse[] = [
     {
         position_id: '3',
         liquidity: '72000000000',
-        owner: 'bluechip1whale8k3jx9f7tn2m4qp6rz0sdvwcyahg5e72n',
+        owner: 'osmo1whale8k3jx9f7tn2m4qp6rz0sdvwcyahg5e72n',
         fee_growth_inside_0_last: '200000',
         fee_growth_inside_1_last: '160000',
         created_at: Math.floor((now - 40 * day) / 1000),
@@ -585,7 +601,7 @@ const MOCK_DELTA_COMMITTERS: CommitterInfo[] = [
         last_committed: ((now - 3 * day) * 1000000).toString(),
     },
     {
-        wallet: 'bluechip1whale8k3jx9f7tn2m4qp6rz0sdvwcyahg5e72n',
+        wallet: 'osmo1whale8k3jx9f7tn2m4qp6rz0sdvwcyahg5e72n',
         total_paid_usd: '6500000000',
         total_paid_bluechip: '52000000000',
         last_payment_usd: '2000000000',
@@ -593,7 +609,7 @@ const MOCK_DELTA_COMMITTERS: CommitterInfo[] = [
         last_committed: ((now - 1 * day) * 1000000).toString(),
     },
     {
-        wallet: 'bluechip1early4m2n7xp8wk5dv3qt6rj0yfscalh9zu8e3',
+        wallet: 'osmo1early4m2n7xp8wk5dv3qt6rj0yfscalh9zu8e3',
         total_paid_usd: '3500000000',
         total_paid_bluechip: '28000000000',
         last_payment_usd: '3500000000',
@@ -601,7 +617,7 @@ const MOCK_DELTA_COMMITTERS: CommitterInfo[] = [
         last_committed: ((now - 40 * day) * 1000000).toString(),
     },
     {
-        wallet: 'bluechip1degen9p4r6t2n7xm3k5wqv8jf0ychlsab2ue6',
+        wallet: 'osmo1degen9p4r6t2n7xm3k5wqv8jf0ychlsab2ue6',
         total_paid_usd: '1800000000',
         total_paid_bluechip: '14400000000',
         last_payment_usd: '1800000000',
@@ -609,7 +625,7 @@ const MOCK_DELTA_COMMITTERS: CommitterInfo[] = [
         last_committed: ((now - 55 * day) * 1000000).toString(),
     },
     {
-        wallet: 'bluechip1saver2k8f5n3m7wp4xr6qt9jv0ydclhgab1u3e',
+        wallet: 'osmo1saver2k8f5n3m7wp4xr6qt9jv0ydclhgab1u3e',
         total_paid_usd: '800000000',
         total_paid_bluechip: '6400000000',
         last_payment_usd: '800000000',
@@ -620,29 +636,29 @@ const MOCK_DELTA_COMMITTERS: CommitterInfo[] = [
 
 
 const MOCK_ALPHA_HOLDERS: TokenHolderEntry[] = [
-    { address: 'bluechip1whale8k3jx9f7tn2m4qp6rz0sdvwcyahg5e72n', balance: '185000000000' },  // 185,000 tokens (whale)
+    { address: 'osmo1whale8k3jx9f7tn2m4qp6rz0sdvwcyahg5e72n', balance: '185000000000' },  // 185,000 tokens (whale)
     { address: MOCK_WALLET, balance: '92000000000' },                                            // 92,000 tokens (whale)
-    { address: 'bluechip1degen9p4r6t2n7xm3k5wqv8jf0ychlsab2ue6', balance: '68000000000' },     // 68,000 tokens (whale)
-    { address: 'bluechip1early4m2n7xp8wk5dv3qt6rj0yfscalh9zu8e3', balance: '45000000000' },    // 45,000 tokens (mid)
-    { address: 'bluechip1saver2k8f5n3m7wp4xr6qt9jv0ydclhgab1u3e', balance: '28000000000' },    // 28,000 tokens (mid)
-    { address: 'bluechip1hodl6n3m8k2f5wp4xr7qt0jv9ydclhsab3ue2', balance: '15000000000' },     // 15,000 tokens (mid)
-    { address: 'bluechip1moon5r7t2n8xm3k4wqp6jf9v0ychlsab2dge1', balance: '8200000000' },      // 8,200 tokens (mid)
-    { address: 'bluechip1tiny3m7k2f8n5wp4xr6qt0jv9ydclhsab1ue4', balance: '3500000000' },      // 3,500 tokens (mid)
-    { address: 'bluechip1micro1a2b3c4d5e6f7g8h9i0jklmnopqrstuv', balance: '1200000000' },       // 1,200 tokens (mid)
-    { address: 'bluechip1dust2b3c4d5e6f7g8h9i0jklmnopqrstuvwxy', balance: '420000000' },         // 420 tokens (mid)
-    { address: 'bluechip1frag3c4d5e6f7g8h9i0jklmnopqrstuvwxyz1', balance: '75000000' },          // 75 tokens (small)
-    { address: 'bluechip1atom4d5e6f7g8h9i0jklmnopqrstuvwxyz123', balance: '50000000' },           // 50 tokens (small)
-    { address: 'bluechip1nano5e6f7g8h9i0jklmnopqrstuvwxyz12345', balance: '12000000' },           // 12 tokens (small)
-    { address: 'bluechip1pico6f7g8h9i0jklmnopqrstuvwxyz1234567', balance: '5000000' },            // 5 tokens (small)
-    { address: 'bluechip1zepto7g8h9i0jklmnopqrstuvwxyz12345678', balance: '800000' },             // 0.8 tokens (small)
+    { address: 'osmo1degen9p4r6t2n7xm3k5wqv8jf0ychlsab2ue6', balance: '68000000000' },     // 68,000 tokens (whale)
+    { address: 'osmo1early4m2n7xp8wk5dv3qt6rj0yfscalh9zu8e3', balance: '45000000000' },    // 45,000 tokens (mid)
+    { address: 'osmo1saver2k8f5n3m7wp4xr6qt9jv0ydclhgab1u3e', balance: '28000000000' },    // 28,000 tokens (mid)
+    { address: 'osmo1hodl6n3m8k2f5wp4xr7qt0jv9ydclhsab3ue2', balance: '15000000000' },     // 15,000 tokens (mid)
+    { address: 'osmo1moon5r7t2n8xm3k4wqp6jf9v0ychlsab2dge1', balance: '8200000000' },      // 8,200 tokens (mid)
+    { address: 'osmo1tiny3m7k2f8n5wp4xr6qt0jv9ydclhsab1ue4', balance: '3500000000' },      // 3,500 tokens (mid)
+    { address: 'osmo1micro1a2b3c4d5e6f7g8h9i0jklmnopqrstuv', balance: '1200000000' },       // 1,200 tokens (mid)
+    { address: 'osmo1dust2b3c4d5e6f7g8h9i0jklmnopqrstuvwxy', balance: '420000000' },         // 420 tokens (mid)
+    { address: 'osmo1frag3c4d5e6f7g8h9i0jklmnopqrstuvwxyz1', balance: '75000000' },          // 75 tokens (small)
+    { address: 'osmo1atom4d5e6f7g8h9i0jklmnopqrstuvwxyz123', balance: '50000000' },           // 50 tokens (small)
+    { address: 'osmo1nano5e6f7g8h9i0jklmnopqrstuvwxyz12345', balance: '12000000' },           // 12 tokens (small)
+    { address: 'osmo1pico6f7g8h9i0jklmnopqrstuvwxyz1234567', balance: '5000000' },            // 5 tokens (small)
+    { address: 'osmo1zepto7g8h9i0jklmnopqrstuvwxyz12345678', balance: '800000' },             // 0.8 tokens (small)
 ];
 
 const MOCK_DELTA_HOLDERS: TokenHolderEntry[] = [
-    { address: 'bluechip1whale8k3jx9f7tn2m4qp6rz0sdvwcyahg5e72n', balance: '120000000000' },
+    { address: 'osmo1whale8k3jx9f7tn2m4qp6rz0sdvwcyahg5e72n', balance: '120000000000' },
     { address: MOCK_WALLET, balance: '65000000000' },
-    { address: 'bluechip1early4m2n7xp8wk5dv3qt6rj0yfscalh9zu8e3', balance: '32000000000' },
-    { address: 'bluechip1degen9p4r6t2n7xm3k5wqv8jf0ychlsab2ue6', balance: '18000000000' },
-    { address: 'bluechip1saver2k8f5n3m7wp4xr6qt9jv0ydclhgab1u3e', balance: '5000000000' },
+    { address: 'osmo1early4m2n7xp8wk5dv3qt6rj0yfscalh9zu8e3', balance: '32000000000' },
+    { address: 'osmo1degen9p4r6t2n7xm3k5wqv8jf0ychlsab2ue6', balance: '18000000000' },
+    { address: 'osmo1saver2k8f5n3m7wp4xr6qt9jv0ydclhgab1u3e', balance: '5000000000' },
 ];
 
 const MOCK_ALPHA_DISTRIBUTION: HolderDistribution = {
@@ -734,8 +750,8 @@ async function mockQueryPoolPair(poolAddress: string): Promise<PoolPairInfo | nu
     const pool = findPool(poolAddress);
     return {
         asset_infos: [
-            { bluechip: { denom: 'ubluechip' } },
-            { creator_token: { contract_addr: pool?.creatorTokenAddress || 'bluechip1mock_token' } },
+            { bluechip: { denom: NATIVE_DENOM } },
+            { creator_token: { contract_addr: pool?.creatorTokenAddress || 'osmo1mock_token' } },
         ],
         contract_addr: poolAddress,
         pool_type: { xyk: {} },
@@ -748,7 +764,7 @@ async function mockQueryPoolCreator(poolAddress: string): Promise<string | null>
     if (pool && (pool.tokenSymbol === 'ALPHA' || pool.tokenSymbol === 'DELTA')) {
         return MOCK_WALLET;
     }
-    return 'bluechip1othercreator_not_you_random_addr_placeholder';
+    return 'osmo1othercreator_not_you_random_addr_placeholder';
 }
 
 async function mockFindPoolsByCreator(
@@ -906,7 +922,7 @@ async function mockQueryCreatorEarnings(poolAddress: string): Promise<CreatorEar
     return {
         creator_wallet_address: pool.tokenSymbol === 'DELTA'
             ? MOCK_WALLET
-            : 'bluechip1othercreator_not_you_random_addr_placeholder',
+            : 'osmo1othercreator_not_you_random_addr_placeholder',
         fee_pot: { amount_0: '0', amount_1: '0' },
         excess: null,
         is_threshold_hit: pool.thresholdReached,
@@ -1091,14 +1107,51 @@ export function getCosmWasmClient() {
     return chain.getCosmWasmClient();
 }
 
-// ---- Factory oracle price (drives the commit staleness banner) ----
+// ---- Factory TWAP price (native/USD, drives the commit price banner) ----
+//
+// The factory values commits via the chain's x/twap module over its
+// configured native/USD-stable pricing pool. The TWAP is computed live
+// on-chain at query time — there is no keeper, cache, or staleness
+// concept. A null result means the query itself failed, in which case
+// commits fail closed on-chain too.
 
-export type { BluechipPriceInfo } from './chainQueries';
+export type { ConversionResponse } from './chainQueries';
 
-export async function queryBluechipOraclePrice(): Promise<chain.BluechipPriceInfo | null> {
-    if (await onChain()) return chain.chainQueryBluechipOraclePrice().catch(() => null);
-    // Demo mode: a fresh, healthy oracle reading ($0.125 per bluechip).
-    return { price: '125000', timestamp: Math.floor(Date.now() / 1000) - 5, is_cached: false };
+export async function queryNativeUsdRate(): Promise<chain.ConversionResponse | null> {
+    if (await onChain()) return chain.chainQueryNativeUsdRate().catch(() => null);
+    // Demo mode: a healthy TWAP reading ($0.50 per OSMO).
+    return { amount: '500000', rate_used: '500000', timestamp: Math.floor(Date.now() / 1000) };
+}
+
+// ---- Factory config (pool creation fee, threshold, payout splits) ----
+
+export async function queryFactoryConfig(): Promise<FactoryConfig | null> {
+    if (await onChain()) return chain.chainQueryFactoryConfig();
+    // Demo mode: mirrors the osmo_testnet_v2 deployment values.
+    return {
+        factory_admin_address: MOCK_WALLET,
+        commit_threshold_limit_usd: '20000000',   // $20 testnet target
+        cw20_token_contract_id: 1,
+        cw721_nft_contract_id: 2,
+        create_pool_wasm_contract_id: 3,
+        bluechip_wallet_address: MOCK_WALLET,
+        commit_fee_bluechip: '0.01',
+        commit_fee_creator: '0.04',
+        max_bluechip_lock_per_pool: '100000000000',
+        creator_excess_liquidity_lock_days: 365,
+        bluechip_denom: NATIVE_DENOM,
+        pricing_pool_id: 1,
+        usd_quote_denom: 'ibc/mock_usdc_denom',
+        twap_window_seconds: 600,
+        pool_creation_fee: '1000000',             // 1 OSMO flat fee
+        threshold_payout_amounts: {
+            creator_reward_amount: '325000000000',
+            bluechip_reward_amount: '25000000000',
+            pool_seed_amount: '350000000000',
+            commit_return_amount: '500000000000',
+        },
+        emergency_withdraw_delay_seconds: 86400,
+    };
 }
 
 // ---- Router (multi-hop swaps) ----
@@ -1107,7 +1160,7 @@ export type { RouterConfig, SimulateMultiHopResponse, SwapOperationWire } from '
 
 export async function queryRouterConfig(routerAddr: string): Promise<chain.RouterConfig | null> {
     if (await onChain()) return chain.chainQueryRouterConfig(routerAddr).catch(() => null);
-    return { factory_addr: 'bluechip1factory_mock_address_for_ui_preview', bluechip_denom: 'ubluechip', admin: MOCK_WALLET };
+    return { factory_addr: 'osmo1factory_mock_address_for_ui_preview', bluechip_denom: NATIVE_DENOM, admin: MOCK_WALLET };
 }
 
 export async function simulateMultiHop(
@@ -1129,18 +1182,5 @@ export async function simulateMultiHop(
         final_amount: amount.toString(),
         intermediate_amounts: intermediates,
         price_impact: (0.005 * operations.length).toFixed(4),
-    };
-}
-
-// ---- Expand-economy reserve (ops monitoring) ----
-
-export type { ExpandEconomyReserve } from './chainQueries';
-
-export async function queryExpandEconomyReserve(): Promise<chain.ExpandEconomyReserve | null> {
-    if (await onChain()) return chain.chainQueryExpandEconomyReserve().catch(() => null);
-    return {
-        address: 'bluechip1expand_economy_mock_address_for_preview',
-        denom: 'ubluechip',
-        amount: '12500000000',   // 12,500 bluechip — comfortably funded
     };
 }

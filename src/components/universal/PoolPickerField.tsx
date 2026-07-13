@@ -75,7 +75,7 @@ const PoolPickerField: React.FC<PoolPickerFieldProps> = ({
                 <TextField
                     {...params}
                     label={label}
-                    placeholder="bluechip1..."
+                    placeholder="osmo1..."
                     helperText={helperText}
                 />
             )}

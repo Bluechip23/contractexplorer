@@ -37,7 +37,7 @@ export function formatDenom(denom: string): string {
 }
 
 export function formatAmount(amount: string | number, denom?: string): string {
-    // u-prefixed denoms (e.g. ubluechip, uatom) are micro-units with 6 decimals.
+    // u-prefixed denoms (e.g. uosmo, uatom) are micro-units with 6 decimals.
     if (denom?.startsWith('u')) {
         return formatMicroAmount(amount, 6, 6);
     }
@@ -90,8 +90,7 @@ const WASM_ACTION_LABELS: Record<string, string> = {
     claim_creator_fees: 'Claim Creator Fees',
     claim_creator_excess_liquidity: 'Claim Excess Liquidity',
     continue_distribution: 'Distribute Payouts',
-    create: 'Create Commit Pool',
-    create_standard_pool: 'Create Standard Pool',
+    create: 'Create Creator Pool',
     execute_multi_hop: 'Multi-Hop Swap',
     increase_allowance: 'Approve Token Spend',
     decrease_allowance: 'Revoke Token Allowance',
@@ -99,7 +98,6 @@ const WASM_ACTION_LABELS: Record<string, string> = {
     update_marketing: 'Update Token Branding',
     upload_logo: 'Upload Token Logo',
     retry_factory_notify: 'Retry Factory Notify',
-    update_oracle_price: 'Update Oracle Price',
 };
 
 // `msg` is the MsgExecuteContract msg field: either base64 (LCD JSON)
@@ -117,7 +115,7 @@ export function describeWasmExecute(msg: unknown): WasmActionInfo | null {
             const amt = body?.asset?.amount;
             return {
                 label: 'Commit',
-                detail: amt ? `Committed ${formatMicroAmount(amt)} bluechip` : undefined,
+                detail: amt ? `Committed ${formatMicroAmount(amt)} OSMO` : undefined,
             };
         }
         case 'simple_swap': {
@@ -126,7 +124,7 @@ export function describeWasmExecute(msg: unknown): WasmActionInfo | null {
             return {
                 label: 'Swap',
                 detail: amt
-                    ? `Swapped ${formatMicroAmount(amt)} ${isNative ? 'bluechip for creator tokens' : 'creator tokens for bluechip'}`
+                    ? `Swapped ${formatMicroAmount(amt)} ${isNative ? 'OSMO for creator tokens' : 'creator tokens for OSMO'}`
                     : undefined,
             };
         }
@@ -139,7 +137,7 @@ export function describeWasmExecute(msg: unknown): WasmActionInfo | null {
                 return {
                     label: 'Swap',
                     detail: body?.amount
-                        ? `Sold ${formatMicroAmount(body.amount)} creator tokens for bluechip`
+                        ? `Sold ${formatMicroAmount(body.amount)} creator tokens for OSMO`
                         : undefined,
                 };
             }
@@ -155,7 +153,7 @@ export function describeWasmExecute(msg: unknown): WasmActionInfo | null {
             return {
                 label: WASM_ACTION_LABELS[action],
                 detail: a0 && a1
-                    ? `${formatMicroAmount(a0)} bluechip + ${formatMicroAmount(a1)} creator tokens`
+                    ? `${formatMicroAmount(a0)} OSMO + ${formatMicroAmount(a1)} creator tokens`
                     : undefined,
             };
         }
@@ -175,7 +173,7 @@ export function describeWasmExecute(msg: unknown): WasmActionInfo | null {
             };
         case 'create':
             return {
-                label: 'Create Commit Pool',
+                label: 'Create Creator Pool',
                 detail: body?.token_info?.symbol
                     ? `Launched ${body.token_info.symbol} (${body?.token_info?.name ?? ''})`.trim()
                     : undefined,

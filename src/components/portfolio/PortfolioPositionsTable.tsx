@@ -54,7 +54,7 @@ const PortfolioPositionsTable: React.FC<PortfolioPositionsTableProps> = ({ posit
                             <TableCell>Pool</TableCell>
                             <TableCell>Position ID</TableCell>
                             <TableCell>Liquidity</TableCell>
-                            <TableCell>Unclaimed Fees (bluechip)</TableCell>
+                            <TableCell>Unclaimed Fees (OSMO)</TableCell>
                             <TableCell>Unclaimed Fees (Token)</TableCell>
                             <TableCell>Last Fee Collection</TableCell>
                             <TableCell>Created</TableCell>

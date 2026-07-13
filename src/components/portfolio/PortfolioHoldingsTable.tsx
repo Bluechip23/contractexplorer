@@ -61,11 +61,11 @@ const PortfolioHoldingsTable: React.FC<PortfolioHoldingsTableProps> = ({ holding
                         {hasNative && (
                             <TableRow hover>
                                 <TableCell>
-                                    <Typography fontWeight="bold" variant="body2">bluechip</Typography>
+                                    <Typography fontWeight="bold" variant="body2">OSMO</Typography>
                                     <Typography variant="caption" color="text.secondary">Native Token</Typography>
                                 </TableCell>
                                 <TableCell><Chip label="Native" color="primary" size="small" variant="outlined" /></TableCell>
-                                <TableCell>{formatMicroAmount(nativeBalance!)} bluechip</TableCell>
+                                <TableCell>{formatMicroAmount(nativeBalance!)} OSMO</TableCell>
                                 <TableCell><Typography variant="body2" color="text.secondary">-</Typography></TableCell>
                             </TableRow>
                         )}

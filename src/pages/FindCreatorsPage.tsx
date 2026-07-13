@@ -61,8 +61,7 @@ const FindCreatorsPage: React.FC = () => {
 
     useEffect(() => {
         if (initialQuery) runSearch(initialQuery);
-        // eslint-disable-next-line react-hooks/exhaustive-deps
-    }, [initialQuery]);
+    }, [initialQuery, runSearch]);
 
     useEffect(() => {
         let cancelled = false;

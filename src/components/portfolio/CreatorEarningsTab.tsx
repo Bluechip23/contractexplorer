@@ -348,7 +348,7 @@ const CreatorEarningsTab: React.FC<CreatorEarningsTabProps> = ({ pools, pool }) 
                             <Typography variant="caption" color="text.secondary">
                                 {pool.thresholdReached
                                     ? grantValueBluechip
-                                        ? `≈ ${grantValueBluechip.toLocaleString(undefined, { maximumFractionDigits: 0 })} bluechip at current price`
+                                        ? `≈ ${grantValueBluechip.toLocaleString(undefined, { maximumFractionDigits: 0 })} OSMO at current price`
                                         : 'Granted at threshold crossing'
                                     : `Granted when the pool crosses its threshold`}
                             </Typography>
@@ -361,7 +361,7 @@ const CreatorEarningsTab: React.FC<CreatorEarningsTabProps> = ({ pools, pool }) 
                             <Typography variant="caption" color="text.secondary">Claimable Now</Typography>
                             <Typography variant="h6" fontWeight="bold">
                                 {hasClaimableFees
-                                    ? `${formatMicroAmount(potBluechip.toString())} bluechip`
+                                    ? `${formatMicroAmount(potBluechip.toString())} OSMO`
                                     : '0'}
                             </Typography>
                             <Typography variant="caption" color="text.secondary">
@@ -377,7 +377,7 @@ const CreatorEarningsTab: React.FC<CreatorEarningsTabProps> = ({ pools, pool }) 
                         <CardContent>
                             <Typography variant="caption" color="text.secondary">Locked Excess</Typography>
                             <Typography variant="h6" fontWeight="bold">
-                                {excess ? `${formatMicroAmount(excess.bluechip_amount)} bluechip` : '—'}
+                                {excess ? `${formatMicroAmount(excess.bluechip_amount)} OSMO` : '—'}
                             </Typography>
                             <Typography variant="caption" color="text.secondary">
                                 {excess
@@ -423,7 +423,7 @@ const CreatorEarningsTab: React.FC<CreatorEarningsTabProps> = ({ pools, pool }) 
                         <Box sx={{ flex: 1, minWidth: 220 }}>
                             <Typography variant="body2" fontWeight="bold">Creator fee pot</Typography>
                             <Typography variant="caption" color="text.secondary">
-                                {formatMicroAmount(potBluechip.toString())} bluechip + {formatMicroAmount(potToken.toString())} {symbol}
+                                {formatMicroAmount(potBluechip.toString())} OSMO + {formatMicroAmount(potToken.toString())} {symbol}
                             </Typography>
                         </Box>
                         <Button
@@ -441,7 +441,7 @@ const CreatorEarningsTab: React.FC<CreatorEarningsTabProps> = ({ pools, pool }) 
                             <Typography variant="body2" fontWeight="bold">Excess liquidity</Typography>
                             <Typography variant="caption" color="text.secondary">
                                 {excess
-                                    ? `${formatMicroAmount(excess.bluechip_amount)} bluechip + ${formatMicroAmount(excess.token_amount)} ${symbol}` +
+                                    ? `${formatMicroAmount(excess.bluechip_amount)} OSMO + ${formatMicroAmount(excess.token_amount)} ${symbol}` +
                                       (excess.claimable_now
                                           ? ' — unlocked'
                                           : ` — unlocks ${excessUnlockDate?.toLocaleDateString()} (${excessDaysLeft} day${excessDaysLeft === 1 ? '' : 's'})`)

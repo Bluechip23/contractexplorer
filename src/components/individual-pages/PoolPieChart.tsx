@@ -33,7 +33,7 @@ const PoolPieChart: React.FC<PoolPieChartProps> = ({ reserve0, reserve1, tokenSy
 
     const data = [
         {
-            name: 'bluechip',
+            name: 'OSMO',
             value: r0,
             displayValue: formatMicroAmount(reserve0),
             color: bluechip_COLOR,

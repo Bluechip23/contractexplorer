@@ -97,7 +97,7 @@ const ChainPortfolioPage: React.FC = () => {
                                 <CardContent>
                                     <Typography variant="h5" fontWeight="bold" sx={{ mb: 1 }}>Chain Portfolio</Typography>
                                     <Typography variant="body2" color="text.secondary" sx={{ fontFamily: 'monospace' }}>{address}</Typography>
-                                    {balance && <Typography variant="body2" sx={{ mt: 0.5 }}>Wallet Balance: <strong>{formatMicroAmount(balance.amount)} bluechip</strong></Typography>}
+                                    {balance && <Typography variant="body2" sx={{ mt: 0.5 }}>Wallet Balance: <strong>{formatMicroAmount(balance.amount)} OSMO</strong></Typography>}
                                 </CardContent>
                             </Card>
 
@@ -105,10 +105,10 @@ const ChainPortfolioPage: React.FC = () => {
                                 <Grid item xs={6} sm={3}><StatCard label="Tokens Held" value={holdings.length + (balance && safeBigInt(balance.amount) > 0n ? 1 : 0)} /></Grid>
                                 <Grid item xs={6} sm={3}><StatCard label="Pools Committed" value={commitments.length} /></Grid>
                                 <Grid item xs={6} sm={3}><StatCard label="Total Committed (USD)" value={`$${formatMicroAmount(totalCommittedUsd.toString())}`} /></Grid>
-                                <Grid item xs={6} sm={3}><StatCard label="Total Committed (bluechip)" value={formatMicroAmount(totalCommittedBluechip.toString())} /></Grid>
+                                <Grid item xs={6} sm={3}><StatCard label="Total Committed (OSMO)" value={formatMicroAmount(totalCommittedBluechip.toString())} /></Grid>
                                 <Grid item xs={6} sm={3}><StatCard label="LP Positions" value={positions.length} /></Grid>
                                 <Grid item xs={6} sm={3}><StatCard label="Total Liquidity Provided" value={formatMicroAmount(totalLiquidity.toString())} /></Grid>
-                                <Grid item xs={6} sm={3}><StatCard label="Unclaimed Fees (bluechip)" value={formatMicroAmount(totalUnclaimedFees0.toString())} /></Grid>
+                                <Grid item xs={6} sm={3}><StatCard label="Unclaimed Fees (OSMO)" value={formatMicroAmount(totalUnclaimedFees0.toString())} /></Grid>
                                 <Grid item xs={6} sm={3}><StatCard label="Unclaimed Fees (Token)" value={formatMicroAmount(totalUnclaimedFees1.toString())} /></Grid>
                                 <Grid item xs={6} sm={3}><StatCard label="Last Fee Collection" value={lastFeeCollection > 0 ? new Date(lastFeeCollection * 1000).toLocaleDateString() : 'Never'} /></Grid>
                             </Grid>

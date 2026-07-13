@@ -150,7 +150,7 @@ const CommitTracker: React.FC<CommitTrackerProps> = ({ client, contractAddress }
                     </Box>
                     <LinearProgress variant="determinate" value={progress} sx={{ height: 10, borderRadius: 5 }} />
                     <Typography variant="caption" color="textSecondary">
-                        Bluechips Committed: {totalBluechips.toLocaleString()}
+                        OSMO Committed: {totalBluechips.toLocaleString()}
                     </Typography>
                 </Box>
                 <Box sx={{ height: 300, width: '100%' }}>

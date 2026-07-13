@@ -4,34 +4,28 @@ import MonitorHeartIcon from '@mui/icons-material/MonitorHeart';
 import {
     fetchAllPoolSummaries,
     formatMicroAmount,
-    queryBluechipOraclePrice,
     queryDistributionState,
-    queryExpandEconomyReserve,
     queryFactoryNotifyStatus,
+    queryNativeUsdRate,
 } from '../../utils/contractQueries';
 import { indexerHealth } from '../../utils/indexerApi';
+import { NATIVE_SYMBOL } from '../../defi/types';
 import { factoryAddress } from './IndividualPage.const';
 
-// Protocol-health strip for the front page. The system fails closed —
-// a stale oracle stops commits and pool creation within ~2 minutes —
-// so surfacing these four signals publicly turns "the site is broken"
-// support pings into "the oracle is 90s stale, it will self-heal".
-// Mirrors the canary described in the contracts repo's RUNBOOK.md.
+// Protocol-health strip for the front page. Commits are valued through
+// the factory's on-chain TWAP (Osmosis x/twap over the configured
+// OSMO/USD-stable pool) and fail closed when that query errors, so
+// surfacing these signals publicly turns "the site is broken" support
+// pings into "the price query is down / a distribution is stalled".
 
-// Pool-side gate (MAX_ORACLE_STALENESS_SECONDS): commits reject past this.
-const ORACLE_STALE_SECONDS = 120;
-// Expand-economy reserve warning floor: ~2 threshold crossings at the
-// default ~500 bluechip/cross reward.
-const EXPAND_WARN_MICRO = 1_000_000_000n;
 // How many crossed pools to health-scan (keeps front-page load bounded).
 const POOL_SCAN_CAP = 12;
 
 type Tone = 'success' | 'warning' | 'error' | 'default';
 
 interface StripState {
-    oracleAgeSec: number | null;
-    oraclePrice: string | null;
-    expandAmount: string | null;
+    // micro-USD per native token; null = TWAP query failing.
+    twapRate: string | null;
     pendingNotifies: number;
     stalledDistributions: number;
     activeDistributions: number;
@@ -40,7 +34,7 @@ interface StripState {
 }
 
 const EMPTY: StripState = {
-    oracleAgeSec: null, oraclePrice: null, expandAmount: null,
+    twapRate: null,
     pendingNotifies: 0, stalledDistributions: 0, activeDistributions: 0,
     indexerHeight: null, loaded: false,
 };
@@ -51,9 +45,8 @@ const OpsStatusStrip: React.FC = () => {
     useEffect(() => {
         let cancelled = false;
         async function load() {
-            const [oracle, expand, idx, pools] = await Promise.all([
-                queryBluechipOraclePrice(),
-                queryExpandEconomyReserve(),
+            const [rate, idx, pools] = await Promise.all([
+                queryNativeUsdRate(),
                 indexerHealth(),
                 fetchAllPoolSummaries(factoryAddress).catch(() => []),
             ]);
@@ -69,9 +62,7 @@ const OpsStatusStrip: React.FC = () => {
 
             if (cancelled) return;
             setS({
-                oracleAgeSec: oracle ? Math.max(0, Math.floor(Date.now() / 1000) - oracle.timestamp) : null,
-                oraclePrice: oracle?.price ?? null,
-                expandAmount: expand?.amount ?? null,
+                twapRate: rate?.rate_used ?? null,
                 pendingNotifies: healths.filter((h) => h.pending).length,
                 stalledDistributions: healths.filter((h) => h.dist?.is_stalled).length,
                 activeDistributions: healths.filter((h) => h.dist?.is_distributing && !h.dist.is_stalled).length,
@@ -86,27 +77,15 @@ const OpsStatusStrip: React.FC = () => {
 
     if (!s.loaded) return null;
 
-    const oracleTone: Tone = s.oracleAgeSec === null
-        ? 'error'
-        : s.oracleAgeSec > ORACLE_STALE_SECONDS ? 'error'
-        : s.oracleAgeSec > ORACLE_STALE_SECONDS * 0.75 ? 'warning'
-        : 'success';
-    const oracleLabel = s.oracleAgeSec === null
-        ? 'Oracle: unreachable'
-        : `Oracle: ${s.oracleAgeSec}s ago`;
-    const oracleTip = s.oracleAgeSec === null
-        ? 'The price oracle is not answering — commits and pool creation are failing closed until it recovers.'
-        : s.oracleAgeSec > ORACLE_STALE_SECONDS
-            ? `Last price update ${s.oracleAgeSec}s ago — past the ${ORACLE_STALE_SECONDS}s gate, commits are being rejected until the next oracle round.`
-            : `Bluechip/USD price ${s.oraclePrice ? '$' + formatMicroAmount(s.oraclePrice, 6, 4) : ''}, updated ${s.oracleAgeSec}s ago (gate: ${ORACLE_STALE_SECONDS}s).`;
-
-    const expandTone: Tone = s.expandAmount === null
-        ? 'warning'
-        : BigInt(s.expandAmount) < EXPAND_WARN_MICRO ? 'warning' : 'success';
-    const expandLabel = s.expandAmount === null
-        ? 'Rewards reserve: n/a'
-        : `Rewards reserve: ${formatMicroAmount(s.expandAmount, 6, 0)}`;
-    const expandTip = 'Bluechip held by the expand-economy contract — threshold-crossing rewards are paid from it. If it runs dry, crossings defer until it is topped up.';
+    // The TWAP is computed live on-chain at query time, so the only
+    // unhealthy state is the query itself failing (commits fail closed).
+    const priceTone: Tone = s.twapRate === null ? 'error' : 'success';
+    const priceLabel = s.twapRate === null
+        ? `${NATIVE_SYMBOL}/USD: unavailable`
+        : `${NATIVE_SYMBOL}/USD: $${formatMicroAmount(s.twapRate, 6, 4)}`;
+    const priceTip = s.twapRate === null
+        ? `The factory's ${NATIVE_SYMBOL}/USD TWAP query is failing — commits are valued through it and are being rejected until it recovers.`
+        : `Live ${NATIVE_SYMBOL}/USD rate from the factory's on-chain TWAP (Osmosis x/twap over the configured pricing pool). Computed fresh every query — no keeper or staleness window.`;
 
     const payoutsTone: Tone = s.stalledDistributions > 0 ? 'error'
         : s.activeDistributions > 0 ? 'warning' : 'success';
@@ -121,7 +100,7 @@ const OpsStatusStrip: React.FC = () => {
     const notifyLabel = s.pendingNotifies > 0
         ? `Notifies: ${s.pendingNotifies} pending`
         : 'Notifies: clear';
-    const notifyTip = 'Factory notifications from threshold crossings awaiting retry. Anyone can call retry_factory_notify; persistent pendings usually mean an expand-economy misconfiguration.';
+    const notifyTip = 'Factory notifications from threshold crossings awaiting retry. Anyone can call retry_factory_notify to clear them.';
 
     const indexerTone: Tone = s.indexerHeight === null ? 'default' : 'success';
     const indexerLabel = s.indexerHeight === null ? 'Indexer: offline' : `Indexer: #${s.indexerHeight}`;
@@ -130,8 +109,7 @@ const OpsStatusStrip: React.FC = () => {
         : 'Last block height ingested by the time-series indexer.';
 
     const chips: { label: string; tone: Tone; tip: string }[] = [
-        { label: oracleLabel, tone: oracleTone, tip: oracleTip },
-        { label: expandLabel, tone: expandTone, tip: expandTip },
+        { label: priceLabel, tone: priceTone, tip: priceTip },
         { label: payoutsLabel, tone: payoutsTone, tip: payoutsTip },
         { label: notifyLabel, tone: notifyTone, tip: notifyTip },
         { label: indexerLabel, tone: indexerTone, tip: indexerTip },

@@ -50,7 +50,7 @@ interface ChartRow {
     t: number;
     label: string;
     close: number | null;
-    volume: number | null;      // whole bluechip
+    volume: number | null;      // whole OSMO
     buyVolume: number | null;
     sellVolume: number | null;
 }
@@ -172,7 +172,7 @@ const PoolHistoryPanel: React.FC<{ poolAddress: string; tokenSymbol?: string }> 
                                         <YAxis yAxisId="vol" orientation="right" tick={{ fontSize: 11 }} width={56} />
                                         <Tooltip
                                             formatter={(value: any, name: any) => {
-                                                if (name === 'Price') return [Number(value).toFixed(6), `Price (bluechip/${symbol})`];
+                                                if (name === 'Price') return [Number(value).toFixed(6), `Price (OSMO/${symbol})`];
                                                 return [Number(value).toLocaleString(undefined, { maximumFractionDigits: 2 }), name];
                                             }}
                                         />
@@ -195,7 +195,7 @@ const PoolHistoryPanel: React.FC<{ poolAddress: string; tokenSymbol?: string }> 
                                         <TableRow>
                                             <TableCell>Time</TableCell>
                                             <TableCell>Side</TableCell>
-                                            <TableCell align="right">bluechip</TableCell>
+                                            <TableCell align="right">OSMO</TableCell>
                                             <TableCell align="right">{symbol}</TableCell>
                                             <TableCell align="right">Price</TableCell>
                                         </TableRow>

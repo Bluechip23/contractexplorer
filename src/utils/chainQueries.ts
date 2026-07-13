@@ -1,5 +1,6 @@
 import { CosmWasmClient } from '@cosmjs/cosmwasm-stargate';
 import { factoryAddress, rpcEndpoint } from '../components/universal/IndividualPage.const';
+import { NATIVE_DENOM } from '../defi/types';
 import { fetchIndexedPools, IndexedPool } from './indexerApi';
 import { safeBigInt } from './bigintMath';
 import type {
@@ -99,11 +100,13 @@ export function chainQueryFactoryConfig(): Promise<FactoryConfig | null> {
     return factoryConfigCache;
 }
 
+// One registry entry from the factory's paginated `pools` query
+// (factory/src/query.rs PoolListEntry). Every pool is a commit/creator
+// pool — there is no pool-kind discriminator on this deployment.
 interface PoolListEntry {
     pool_id: number;
     pool_addr: string;
     pool_token_info: [TokenType, TokenType];
-    pool_kind: 'commit' | 'standard';
 }
 
 // Enumerate the registry via the factory's paginated `pools` query, with
@@ -128,10 +131,9 @@ export async function chainListPools(): Promise<PoolListEntry[]> {
             pool_id: p.pool_id ?? 0,
             pool_addr: p.address,
             pool_token_info: [
-                { bluechip: { denom: 'ubluechip' } },
+                { bluechip: { denom: NATIVE_DENOM } },
                 { creator_token: { contract_addr: p.token_address ?? '' } },
             ] as [TokenType, TokenType],
-            pool_kind: p.kind,
         }));
     }
 }
@@ -304,11 +306,9 @@ export async function chainFetchPoolSummary(poolAddress: string): Promise<PoolSu
     }
 }
 
-// Creator-pool summaries for the whole registry. Standard pools are
-// excluded: they have no creator token / commit phase and would render
-// nonsense in the creator-pool tables.
+// Creator-pool summaries for the whole registry.
 export async function chainFetchAllPoolSummaries(): Promise<PoolSummary[]> {
-    const entries = (await chainListPools()).filter((p) => p.pool_kind === 'commit');
+    const entries = await chainListPools();
     const summaries = await mapLimited(entries, 4, (e) => chainFetchPoolSummary(e.pool_addr));
     return summaries.filter((s): s is PoolSummary => s !== null);
 }
@@ -419,18 +419,25 @@ export async function chainQueryThresholdAnalytics(
 }
 
 // ---------------------------------------------------------------------------
-// Oracle (factory-internal bluechip/USD price)
+// Factory TWAP price (native/USD via Osmosis x/twap)
 // ---------------------------------------------------------------------------
 
-export interface BluechipPriceInfo {
-    price: string;        // micro-USD per bluechip (Uint128)
-    timestamp: number;    // unix seconds of the last oracle update
-    is_cached: boolean;
+// Mirrors pool-factory-interfaces `ConversionResponse`. `rate_used` is
+// micro-USD per native token (1_000_000 = $1.00/OSMO); `timestamp` is
+// the unix-seconds block time the TWAP was computed at — always the
+// current block, since the TWAP is computed live on-chain (no caching
+// or staleness concept).
+export interface ConversionResponse {
+    amount: string;       // USD value (6 decimals) of the queried amount
+    rate_used: string;    // micro-USD per OSMO
+    timestamp: number;    // unix seconds (current block time)
 }
 
-export function chainQueryBluechipOraclePrice(): Promise<BluechipPriceInfo> {
-    return smart<BluechipPriceInfo>(factoryAddress, {
-        internal_blue_chip_oracle_query: { get_bluechip_usd_price: {} },
+// Values 1 OSMO (1_000_000 uosmo) in USD via the factory's live TWAP.
+// A failed query means commits fail closed on-chain too.
+export function chainQueryNativeUsdRate(): Promise<ConversionResponse> {
+    return smart<ConversionResponse>(factoryAddress, {
+        pool_factory_query: { convert_native_to_usd: { amount: '1000000' } },
     });
 }
 
@@ -469,25 +476,4 @@ export function chainSimulateMultiHop(
     return smart<SimulateMultiHopResponse>(routerAddr, {
         simulate_multi_hop: { operations, offer_amount: offerAmount },
     });
-}
-
-// ---------------------------------------------------------------------------
-// Expand-economy reserve (threshold-crossing rewards are paid from it)
-// ---------------------------------------------------------------------------
-
-export interface ExpandEconomyReserve {
-    address: string;
-    denom: string;
-    amount: string;   // micro
-}
-
-export async function chainQueryExpandEconomyReserve(): Promise<ExpandEconomyReserve | null> {
-    const cfg = await chainQueryFactoryConfig();
-    const addr = cfg?.bluechip_mint_contract_address;
-    if (!addr) return null;
-    const denom = cfg?.bluechip_denom || 'ubluechip';
-    const bal = await smart<{ denom: string; amount: string }>(addr, {
-        get_balance: { denom },
-    });
-    return { address: addr, denom, amount: bal.amount };
 }

@@ -1,6 +1,6 @@
-// Shared building blocks for MsgExecuteContract flows against creator /
-// standard pools. These were previously copy-pasted (and drifting) between
-// the Creator Economy page forms and the pool action modals.
+// Shared building blocks for MsgExecuteContract flows against creator
+// pools. These were previously copy-pasted (and drifting) between the
+// Creator Economy page forms and the pool action modals.
 
 import type { SigningCosmWasmClient } from '@cosmjs/cosmwasm-stargate';
 import { NATIVE_DENOM } from '../defi/types';
@@ -9,7 +9,7 @@ import { compareMicro, safeBigInt } from './bigintMath';
 export interface PoolAssets {
     /** CW20 creator-token contract, or null for a pure native pool. */
     tokenAddress: string | null;
-    /** The pool's native denom leg (defaults to the canonical bluechip denom). */
+    /** The pool's native denom leg (defaults to the canonical native denom, uosmo). */
     bluechipDenom: string;
 }
 

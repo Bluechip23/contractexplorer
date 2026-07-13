@@ -24,7 +24,7 @@ import VolunteerActivismIcon from '@mui/icons-material/VolunteerActivism';
 import AddCircleIcon from '@mui/icons-material/AddCircle';
 import RemoveCircleIcon from '@mui/icons-material/RemoveCircle';
 import { useWallet } from '../../context/WalletContext';
-import { NATIVE_DENOM, COIN_DECIMALS } from '../../defi/types';
+import { NATIVE_DENOM, NATIVE_SYMBOL, COIN_DECIMALS } from '../../defi/types';
 import {
     validateTokenAmount,
     validateBech32Address,
@@ -162,7 +162,7 @@ export const BuyPanel: React.FC<BasePanelProps> = ({ onClose, poolAddress, token
     const handleReview = () => {
         setInputError('');
 
-        // SECURITY: Validate the pool address is a well-formed bluechip bech32 address.
+        // SECURITY: Validate the pool address is a well-formed Osmosis bech32 address.
         const addrCheck = validateBech32Address(poolAddress);
         if (!addrCheck.ok) {
             setInputError(`Pool address invalid: ${addrCheck.error}`);
@@ -189,7 +189,7 @@ export const BuyPanel: React.FC<BasePanelProps> = ({ onClose, poolAddress, token
     const handleConfirm = async () => {
         if (!client || !address) return;
 
-        // SECURITY: Assert chain ID matches bluechip-3 immediately before signing.
+        // SECURITY: Assert chain ID matches the expected Osmosis chain immediately before signing.
         const chainCheck = await assertWalletOnExpectedChain(client);
         if (!chainCheck.ok) {
             setErrorMsg(chainCheck.error!);
@@ -275,12 +275,12 @@ export const BuyPanel: React.FC<BasePanelProps> = ({ onClose, poolAddress, token
             {stage === 'input' && (
                 <Box sx={{ display: 'flex', flexDirection: 'column', gap: 2 }}>
                     <TextField
-                        label="Amount (bluechip)"
+                        label={`Amount (${NATIVE_SYMBOL})`}
                         value={amount}
                         onChange={(e) => setAmount(e.target.value)}
                         type="number"
                         fullWidth
-                        helperText="Amount of bluechip to spend"
+                        helperText={`Amount of ${NATIVE_SYMBOL} to spend`}
                     />
                     <TextField
                         label="Max Slippage (%)"
@@ -309,14 +309,14 @@ export const BuyPanel: React.FC<BasePanelProps> = ({ onClose, poolAddress, token
                     title={`Buy ${sanitizeOnChainString(tokenSymbol, 16) || 'Token'}`}
                     summary={formatSwapSummary({
                         sendAmount: amount,
-                        sendSymbol: 'bluechip',
+                        sendSymbol: NATIVE_SYMBOL,
                         receiveAmount: '~estimated',
                         receiveSymbol: tokenSymbol || 'Token',
                         slippagePct: slipResult.pct ?? 0.5,
                     })}
                     slippageWarning={slipResult.warn}
                     details={[
-                        { label: 'You Pay', value: `${amount} bluechip` },
+                        { label: 'You Pay', value: `${amount} ${NATIVE_SYMBOL}` },
                         { label: 'Max Slippage', value: `${maxSpread}%` },
                         { label: 'Pool', value: `${poolAddress.slice(0, 12)}...${poolAddress.slice(-6)}` },
                     ]}
@@ -502,7 +502,7 @@ export const SellPanel: React.FC<BasePanelProps & { creatorTokenAddress?: string
                         sendAmount: amount,
                         sendSymbol: tokenSymbol || 'Token',
                         receiveAmount: '~estimated',
-                        receiveSymbol: 'bluechip',
+                        receiveSymbol: NATIVE_SYMBOL,
                         slippagePct: slipResult.pct ?? 0.5,
                     })}
                     slippageWarning={slipResult.warn}
@@ -672,10 +672,10 @@ export const CommitPanel: React.FC<BasePanelProps & { thresholdReached?: boolean
                     <Alert severity="info" sx={{ mb: 1 }}>
                         {thresholdReached
                             ? `This pool is past its funding threshold — your commit is swapped through the AMM and you receive ${symbol} at the current price. Your on-chain subscription record still updates.`
-                            : "Subscribe to this pool's pre-threshold phase. Your bluechip will be committed toward the funding threshold."}
+                            : `Subscribe to this pool's pre-threshold phase. Your ${NATIVE_SYMBOL} will be committed toward the funding threshold.`}
                     </Alert>
                     <TextField
-                        label="Amount (bluechip)"
+                        label={`Amount (${NATIVE_SYMBOL})`}
                         value={amount}
                         onChange={(e) => setAmount(e.target.value)}
                         type="number"
@@ -707,10 +707,10 @@ export const CommitPanel: React.FC<BasePanelProps & { thresholdReached?: boolean
                 <ConfirmationView
                     title="Confirm Commitment"
                     summary={thresholdReached
-                        ? `You are committing ${amount} bluechip. It will be swapped through the pool and you will receive ${symbol}.`
-                        : `You are committing ${amount} bluechip toward this pool's funding threshold.`}
+                        ? `You are committing ${amount} ${NATIVE_SYMBOL}. It will be swapped through the pool and you will receive ${symbol}.`
+                        : `You are committing ${amount} ${NATIVE_SYMBOL} toward this pool's funding threshold.`}
                     details={[
-                        { label: 'You Commit', value: `${amount} bluechip` },
+                        { label: 'You Commit', value: `${amount} ${NATIVE_SYMBOL}` },
                         ...(thresholdReached ? [{ label: 'Max Slippage', value: `${maxSpread}%` }] : []),
                         { label: 'Pool', value: `${poolAddress.slice(0, 12)}...${poolAddress.slice(-6)}` },
                     ]}
@@ -771,10 +771,10 @@ export const DepositLiquidityPanel: React.FC<BasePanelProps & { creatorTokenAddr
             }
         }
 
-        // SECURITY: Validate bluechip amount against on-chain balance.
+        // SECURITY: Validate OSMO amount against on-chain balance.
         const amt0Check = validateTokenAmount(amount0, COIN_DECIMALS, balance?.amount);
         if (!amt0Check.ok) {
-            setInputError(`Bluechip amount: ${amt0Check.error}`);
+            setInputError(`${NATIVE_SYMBOL} amount: ${amt0Check.error}`);
             return;
         }
 
@@ -881,7 +881,7 @@ export const DepositLiquidityPanel: React.FC<BasePanelProps & { creatorTokenAddr
             {stage === 'input' && (
                 <Box sx={{ display: 'flex', flexDirection: 'column', gap: 2 }}>
                     <TextField
-                        label="Amount bluechip"
+                        label={`Amount ${NATIVE_SYMBOL}`}
                         value={amount0}
                         onChange={(e) => setAmount0(e.target.value)}
                         type="number"
@@ -919,14 +919,14 @@ export const DepositLiquidityPanel: React.FC<BasePanelProps & { creatorTokenAddr
                     title="Confirm Liquidity Deposit"
                     summary={formatLiquidityDepositSummary({
                         amount0,
-                        symbol0: 'bluechip',
+                        symbol0: NATIVE_SYMBOL,
                         amount1,
                         symbol1: tokenSymbol || 'Creator Token',
                         lpShares: '~estimated',
                     })}
                     slippageWarning={slipResult.warn}
                     details={[
-                        { label: 'bluechip', value: amount0 },
+                        { label: NATIVE_SYMBOL, value: amount0 },
                         { label: sanitizeOnChainString(tokenSymbol, 16) || 'Creator Token', value: amount1 },
                         { label: 'Slippage', value: `${slippage}%` },
                     ]}

@@ -38,7 +38,7 @@ export function formatPoolMetric(pool: PoolSummary, metricKey: string): string {
     switch (metricKey) {
         case 'tokenPrice':
         case 'priceChange':
-            return raw > 0 ? `${raw.toLocaleString(undefined, { minimumFractionDigits: 4, maximumFractionDigits: 6 })} BLC` : '-';
+            return raw > 0 ? `${raw.toLocaleString(undefined, { minimumFractionDigits: 4, maximumFractionDigits: 6 })} OSMO` : '-';
         case 'totalCommitters':
         case 'totalPositions':
         case 'uniqueHolders':
@@ -80,7 +80,7 @@ export const POOL_FOCUS_METRICS: PoolMetricDef[] = [
     { key: 'totalSupply', label: 'Total Supply' },
     { key: 'tokenPrice', label: 'Token Price' },
     { key: 'marketCap', label: 'Market Cap' },
-    { key: 'reserve0', label: 'bluechip Reserve' },
+    { key: 'reserve0', label: 'OSMO Reserve' },
     { key: 'reserve1', label: 'Creator Token Reserve' },
 ];
 

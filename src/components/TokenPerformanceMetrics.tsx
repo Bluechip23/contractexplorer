@@ -440,7 +440,7 @@ const TokenPerformanceMetrics: React.FC<TokenPerformanceMetricsProps> = ({ pool 
                 <MetricRow
                     icon={<TrendingUpIcon color="primary" />}
                     label="Token Price"
-                    value={pool.thresholdReached ? `${currentPrice} BLC` : 'Pre-threshold'}
+                    value={pool.thresholdReached ? `${currentPrice} OSMO` : 'Pre-threshold'}
                 />
                 <MetricRow
                     icon={<PersonAddIcon color="success" />}
@@ -567,7 +567,7 @@ const TokenPerformanceMetrics: React.FC<TokenPerformanceMetricsProps> = ({ pool 
                     icon={<AccountBalanceIcon color="success" />}
                     label="Total Fees Produced"
                     value={formatMicroAmount(totalFeesProduced)}
-                    subtext={`bluechip: ${formatMicroAmount(pool.totalFeesCollected0)} | Token: ${formatMicroAmount(pool.totalFeesCollected1)}`}
+                    subtext={`OSMO: ${formatMicroAmount(pool.totalFeesCollected0)} | Token: ${formatMicroAmount(pool.totalFeesCollected1)}`}
                 />
                 <MetricRow
                     icon={<MonetizationOnIcon sx={{ color: '#ffd700' }} />}
@@ -607,9 +607,9 @@ const TokenPerformanceMetrics: React.FC<TokenPerformanceMetricsProps> = ({ pool 
                         />
                         <MetricRow
                             icon={<TrendingUpIcon color="action" />}
-                            label="Volume (bluechip)"
+                            label="Volume (OSMO)"
                             value={formatMicroAmount(onChainAnalytics.analytics.total_volume_0)}
-                            subtext="Cumulative bluechip volume through swaps"
+                            subtext="Cumulative OSMO volume through swaps"
                         />
                         <MetricRow
                             icon={<TrendingUpIcon color="action" />}
@@ -626,7 +626,7 @@ const TokenPerformanceMetrics: React.FC<TokenPerformanceMetricsProps> = ({ pool 
                         <MetricRow
                             icon={<MonetizationOnIcon color="warning" />}
                             label="Unclaimed Fee Reserves"
-                            value={`${formatMicroAmount(onChainAnalytics.fee_reserve_0)} BLC / ${formatMicroAmount(onChainAnalytics.fee_reserve_1)} ${pool.tokenSymbol}`}
+                            value={`${formatMicroAmount(onChainAnalytics.fee_reserve_0)} OSMO / ${formatMicroAmount(onChainAnalytics.fee_reserve_1)} ${pool.tokenSymbol}`}
                             subtext="Fees accrued but not yet collected by LPs"
                         />
                         {onChainAnalytics.analytics.last_trade_timestamp > 0 && (
