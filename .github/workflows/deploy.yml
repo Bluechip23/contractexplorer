@@ -40,6 +40,11 @@ jobs:
           # Deployed site talks to the profiles API on its own subdomain.
           # (Local dev falls back to http://localhost:4317.)
           REACT_APP_PROFILES_URL: https://api.bluechipsblockexplorer.com
+          # Live-chain data source (CosmWasm smart queries). osmo-test-5
+          # matches the deployed testnet contracts. If the site shows demo
+          # data, this endpoint is likely not sending browser CORS headers —
+          # swap it for a CORS-enabled RPC or proxy it through Caddy.
+          REACT_APP_RPC_ENDPOINT: https://rpc.osmotest5.osmosis.zone
 
       - name: Setup Pages
         uses: actions/configure-pages@v4
