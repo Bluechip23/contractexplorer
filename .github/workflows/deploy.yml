@@ -37,6 +37,9 @@ jobs:
         run: CI=false npm run build
         env:
           GENERATE_SOURCEMAP: false
+          # Deployed site talks to the profiles API on its own subdomain.
+          # (Local dev falls back to http://localhost:4317.)
+          REACT_APP_PROFILES_URL: https://api.bluechipsblockexplorer.com
 
       - name: Setup Pages
         uses: actions/configure-pages@v4

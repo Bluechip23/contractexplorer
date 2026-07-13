@@ -12,6 +12,11 @@ export interface Config {
     // RPC endpoint used for the committing_info (subscription) checks.
     rpcUrl: string;
     rateLimitPerMin: number;
+    // Allowed CORS origins. Empty array = allow any origin (safe here:
+    // writes are authenticated by wallet signature, not cookies, so there
+    // is no CSRF surface). Set PROFILES_ALLOWED_ORIGINS to a comma-separated
+    // list (e.g. "https://bluechipsblockexplorer.com") to lock it down.
+    allowedOrigins: string[];
 }
 
 export function loadConfig(): Config {
@@ -20,5 +25,9 @@ export function loadConfig(): Config {
         dbPath: process.env.PROFILES_DB || './profiles.db',
         rpcUrl: (process.env.PROFILES_RPC || 'https://rpc.osmotest5.osmosis.zone').replace(/\/+$/, ''),
         rateLimitPerMin: envInt('RATE_LIMIT_PER_MIN', 300),
+        allowedOrigins: (process.env.PROFILES_ALLOWED_ORIGINS || '')
+            .split(',')
+            .map((o) => o.trim())
+            .filter(Boolean),
     };
 }

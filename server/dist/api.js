@@ -97,7 +97,10 @@ async function requireSigned(db, req, res, intent) {
 }
 function buildApi(db, cfg) {
     const app = (0, express_1.default)();
-    app.use((0, cors_1.default)()); // public read API — allow all origins
+    // Behind a reverse proxy (Caddy/Nginx) in production, so honor
+    // X-Forwarded-* for correct client IPs in the rate limiter.
+    app.set('trust proxy', true);
+    app.use((0, cors_1.default)(cfg.allowedOrigins.length > 0 ? { origin: cfg.allowedOrigins } : undefined));
     app.use(express_1.default.json({ limit: '64kb' })); // JSON only, small bodies
     app.use(rateLimiter(cfg.rateLimitPerMin));
     app.get('/health', (_req, res) => {

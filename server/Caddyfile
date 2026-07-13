@@ -1,0 +1,8 @@
+# Automatic HTTPS for the profiles API. Caddy provisions and renews the
+# TLS certificate for {$PROFILES_DOMAIN} via Let's Encrypt on first start.
+{$PROFILES_DOMAIN} {
+	tls {$ACME_EMAIL}
+	encode gzip
+	# Proxy to the profiles service on the internal Docker network.
+	reverse_proxy profiles:4317
+}

@@ -1,0 +1,52 @@
+# Profiles service + Caddy reverse proxy with automatic HTTPS.
+#
+# Caddy fetches and renews a Let's Encrypt certificate for the domain in
+# PROFILES_DOMAIN automatically — no manual cert wrangling. Point that
+# domain's DNS A record at this server first (see README).
+#
+#   PROFILES_DOMAIN=api.bluechipsblockexplorer.com \
+#   ACME_EMAIL=you@example.com \
+#   docker compose up -d --build
+#
+# The profiles container is NOT published to the host directly — only Caddy
+# is exposed (80/443). Caddy proxies to the profiles service over the
+# internal Docker network.
+
+services:
+  profiles:
+    build: .
+    restart: unless-stopped
+    environment:
+      PROFILES_PORT: 4317
+      PROFILES_DB: /data/profiles.db
+      # Public Osmosis RPC used for the on-chain subscription (committing_info)
+      # checks. A normal (pruned) RPC is fine — smart queries aren't pruned.
+      PROFILES_RPC: ${PROFILES_RPC:-https://rpc.osmotest5.osmosis.zone}
+      # Lock CORS to the site origin(s). Comma-separated; omit to allow any.
+      PROFILES_ALLOWED_ORIGINS: ${PROFILES_ALLOWED_ORIGINS:-https://bluechipsblockexplorer.com}
+      RATE_LIMIT_PER_MIN: ${RATE_LIMIT_PER_MIN:-300}
+    volumes:
+      - profiles-data:/data
+    expose:
+      - "4317"
+
+  caddy:
+    image: caddy:2-alpine
+    restart: unless-stopped
+    depends_on:
+      - profiles
+    ports:
+      - "80:80"
+      - "443:443"
+    environment:
+      PROFILES_DOMAIN: ${PROFILES_DOMAIN:?set PROFILES_DOMAIN, e.g. api.bluechipsblockexplorer.com}
+      ACME_EMAIL: ${ACME_EMAIL:?set ACME_EMAIL for Let's Encrypt}
+    volumes:
+      - ./Caddyfile:/etc/caddy/Caddyfile:ro
+      - caddy-data:/data
+      - caddy-config:/config
+
+volumes:
+  profiles-data:
+  caddy-data:
+  caddy-config:

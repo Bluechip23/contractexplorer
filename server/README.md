@@ -18,25 +18,64 @@ npm install
 npm run dev          # tsc && node dist/index.js
 ```
 
-Docker:
+Plain Docker (no TLS — for local testing or behind your own proxy):
 
 ```bash
 docker build -t bluechip-profiles .
 docker run -p 4317:4317 -v profiles-data:/data bluechip-profiles
 ```
 
+## Production deploy (Docker Compose + automatic HTTPS)
+
+`docker-compose.yml` runs the service behind **Caddy**, which fetches and
+auto-renews a Let's Encrypt TLS certificate for your API subdomain — no
+manual cert steps. Aimed at a first-time Docker user:
+
+1. **Install Docker** on your server (Docker Engine + the Compose plugin).
+   On Ubuntu: `curl -fsSL https://get.docker.com | sh`.
+2. **Point DNS at the server.** Add an `A` record for your API subdomain —
+   e.g. `api.bluechipsblockexplorer.com` → your server's public IP. (This is
+   a *different* record from the site itself, which is on GitHub Pages.)
+   Wait for it to resolve (`dig api.bluechipsblockexplorer.com`).
+3. **Open ports 80 and 443** on the server firewall — Caddy needs both (80
+   for the ACME challenge, 443 to serve). Port 4317 stays internal.
+4. **Bring it up** from the `server/` directory:
+
+   ```bash
+   PROFILES_DOMAIN=api.bluechipsblockexplorer.com \
+   ACME_EMAIL=you@example.com \
+   PROFILES_ALLOWED_ORIGINS=https://bluechipsblockexplorer.com \
+   docker compose up -d --build
+   ```
+
+   First start takes ~30s while Caddy provisions the certificate. Check it:
+   `curl https://api.bluechipsblockexplorer.com/health` → `{"ok":true}`.
+
+The frontend is already wired to this subdomain (the Pages deploy sets
+`REACT_APP_PROFILES_URL=https://api.bluechipsblockexplorer.com`). To use a
+different host, change it in `.github/workflows/deploy.yml` and here.
+
+Update later with `git pull && docker compose up -d --build`. The SQLite DB
+lives in the `profiles-data` volume and survives rebuilds.
+
 ## Environment
 
-| Variable             | Default                              | Purpose                                        |
-| -------------------- | ------------------------------------ | ---------------------------------------------- |
-| `PROFILES_PORT`      | `4317`                               | HTTP listen port                               |
-| `PROFILES_DB`        | `./profiles.db`                      | SQLite file path                               |
-| `PROFILES_RPC`       | `https://rpc.osmotest5.osmosis.zone` | RPC used for `committing_info` checks          |
-| `RATE_LIMIT_PER_MIN` | `300`                                | Per-IP request budget; `0` disables            |
+| Variable                   | Default                              | Purpose                                        |
+| -------------------------- | ------------------------------------ | ---------------------------------------------- |
+| `PROFILES_PORT`            | `4317`                               | HTTP listen port                               |
+| `PROFILES_DB`              | `./profiles.db`                      | SQLite file path                               |
+| `PROFILES_RPC`             | `https://rpc.osmotest5.osmosis.zone` | RPC used for `committing_info` checks          |
+| `PROFILES_ALLOWED_ORIGINS` | *(any)*                              | Comma-separated CORS allowlist; omit to allow any origin |
+| `RATE_LIMIT_PER_MIN`       | `300`                                | Per-IP request budget; `0` disables            |
+
+Compose-only variables: `PROFILES_DOMAIN` (API subdomain for the TLS cert)
+and `ACME_EMAIL` (Let's Encrypt account email).
 
 ## API
 
-CORS is open (public read API). Bodies are JSON, limited to 64 KB.
+CORS allows any origin by default (writes are wallet-signature authenticated,
+so there is no cookie/CSRF surface); set `PROFILES_ALLOWED_ORIGINS` to lock it
+to your site. Bodies are JSON, limited to 64 KB.
 
 | Method | Path                   | Auth   | Description                                                                              |
 | ------ | ---------------------- | ------ | ---------------------------------------------------------------------------------------- |

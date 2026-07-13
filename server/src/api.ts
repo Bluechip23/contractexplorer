@@ -110,7 +110,10 @@ async function requireSigned(
 
 export function buildApi(db: Db, cfg: Config): Express {
     const app = express();
-    app.use(cors());                             // public read API — allow all origins
+    // Behind a reverse proxy (Caddy/Nginx) in production, so honor
+    // X-Forwarded-* for correct client IPs in the rate limiter.
+    app.set('trust proxy', true);
+    app.use(cors(cfg.allowedOrigins.length > 0 ? { origin: cfg.allowedOrigins } : undefined));
     app.use(express.json({ limit: '64kb' }));    // JSON only, small bodies
     app.use(rateLimiter(cfg.rateLimitPerMin));
 
