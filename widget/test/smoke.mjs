@@ -16,10 +16,10 @@ const CHROMIUM =
     process.env.CHROMIUM_PATH ??
     '/opt/pw-browsers/chromium-1194/chrome-linux/chrome';
 
-const RPC = 'https://bluechip.rpc.bluechip.link';
-const REST = 'https://bluechip.api.bluechip.link';
-const POOL = 'bluechip1pool00000000000000000000000000000000';
-const WALLET = 'bluechip1fan000000000000000000000000000000000';
+const RPC = 'https://rpc.osmotest5.osmosis.zone';
+const REST = 'https://lcd.osmotest5.osmosis.zone';
+const POOL = 'osmo1pool00000000000000000000000000000000';
+const WALLET = 'osmo1fan000000000000000000000000000000000';
 
 // ---------------------------------------------------------------------------
 // Tiny protobuf writers — just enough for the two ABCI responses we fake.
@@ -62,7 +62,7 @@ const STATUS_RESULT = {
         protocol_version: { p2p: '8', block: '11', app: '0' },
         id: 'ab'.repeat(20),
         listen_addr: 'tcp://0.0.0.0:26656',
-        network: 'bluechip-3',
+        network: 'osmo-test-5',
         version: '0.37.2',
         channels: '40202122233038606100',
         moniker: 'smoke-node',
@@ -211,19 +211,21 @@ async function main() {
 
     const signed = await page.evaluate(() => window.__signedBodies);
     assert.equal(signed.length, 1);
-    assert.equal(signed[0].chainId, 'bluechip-3');
+    assert.equal(signed[0].chainId, 'osmo-test-5');
     const body = signed[0].bodyAscii;
     // The execute msg JSON is embedded verbatim in the tx body. The fake
     // node reported the pool in_progress, so max_spread must be null.
-    const expectedMsg = /"commit":\{"asset":\{"info":\{"bluechip":\{"denom":"ubluechip"\}\},"amount":"25000000"\},"transaction_deadline":"\d+","belief_price":null,"max_spread":null\}/;
+    // The native pair side stays wire-tagged "bluechip" (legacy serde
+    // rename in the contracts) even though the denom is uosmo.
+    const expectedMsg = /"commit":\{"asset":\{"info":\{"bluechip":\{"denom":"uosmo"\}\},"amount":"25000000"\},"transaction_deadline":"\d+","belief_price":null,"max_spread":null\}/;
     assert.match(body, expectedMsg, 'tx body carries the exact commit execute msg');
     assert.ok(body.includes(POOL), 'tx body targets the pool contract');
-    assert.ok(body.includes('ubluechip'), 'funds denom present');
+    assert.ok(body.includes('uosmo'), 'funds denom present');
 
     // Keplr got the right chain registration.
     const suggested = await page.evaluate(() => window.__suggestedChain);
-    assert.equal(suggested.chainId, 'bluechip-3');
-    assert.equal(suggested.currencies[0].coinMinimalDenom, 'ubluechip');
+    assert.equal(suggested.chainId, 'osmo-test-5');
+    assert.equal(suggested.currencies[0].coinMinimalDenom, 'uosmo');
 
     await browser.close();
     console.log('smoke: all assertions passed');

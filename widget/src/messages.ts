@@ -1,7 +1,7 @@
 // Pure helpers: wire messages and unit conversions. Everything here
-// mirrors the contract API in bluechip-contracts (creator-pool commit,
-// committing_info / is_fully_commited queries) and is covered by unit
-// tests — keep this file free of DOM, wallet, and network access.
+// mirrors the contract API in bluechip-osmosis-contract (creator-pool
+// commit, committing_info / is_fully_commited queries) and is covered by
+// unit tests — keep this file free of DOM, wallet, and network access.
 
 /** Convert a user-entered decimal amount to micro-units via string math
  * (no float drift). Throws on malformed or non-positive input. */
@@ -35,7 +35,11 @@ export function deadlineNs(minutesFromNow = 20, nowMs = Date.now()): string {
 
 /** The creator-pool `commit` execute message. Pre-threshold commits are
  * ledger entries (no AMM leg) so max_spread must be null; post-threshold
- * commits route through the AMM and take a spread guard. */
+ * commits route through the AMM and take a spread guard.
+ *
+ * NOTE: the native side of the pair is wire-tagged `bluechip` — a legacy
+ * serde rename kept by the contracts (`TokenType::Native` renamed to
+ * "bluechip") — even though the denom inside it is `uosmo` on Osmosis. */
 export function buildCommitMsg(opts: {
     denom: string;
     amountMicro: string;
@@ -56,8 +60,8 @@ export function buildCommitMsg(opts: {
     };
 }
 
-/** Funds attached to the commit: exactly one coin of the canonical
- * bluechip denom (the contract validates with must_pay). */
+/** Funds attached to the commit: exactly one coin of the chain's native
+ * denom (`uosmo` on Osmosis; the contract validates with must_pay). */
 export function commitFunds(denom: string, amountMicro: string) {
     return [{ denom, amount: amountMicro }];
 }
@@ -89,7 +93,7 @@ export function smartQueryUrl(rest: string, contract: string, query: unknown): s
 export interface CommitRecord {
     committer: string;
     total_paid_usd: string;       // micro-USD
-    total_paid_bluechip: string;  // micro-bluechip
+    total_paid_bluechip: string;  // native micro-units (uosmo) — legacy field name
     last_committed: string;       // nanoseconds
     last_payment_usd: string;
     last_payment_bluechip: string;

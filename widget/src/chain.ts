@@ -85,8 +85,10 @@ export interface SubscribeResult {
     address: string;
 }
 
-/** Commit native bluechip to a creator pool ("subscribe"). Amount is in
- * whole bluechip (e.g. "25" or 25). */
+/** Commit native OSMO to a creator pool ("subscribe"). Amount is in
+ * whole OSMO (e.g. "25" or 25), converted to uosmo micro-units. The
+ * contract values commits in USD via on-chain TWAP and enforces a $5
+ * minimum pre-threshold / $1 minimum post-threshold. */
 export async function subscribe(opts: { pool?: string; amount: string | number }): Promise<SubscribeResult> {
     const cfg = getConfig();
     const pool = opts.pool ?? cfg.pool;

@@ -37,7 +37,7 @@ function resolveEl(target: Element | string): Element {
 
 export interface SubscribeMountOptions {
     pool?: string;
-    /** Pre-filled amount in whole bluechip. */
+    /** Pre-filled amount in whole OSMO. */
     defaultAmount?: string;
     /** Hide the amount input and always use defaultAmount. */
     fixedAmount?: boolean;
@@ -167,8 +167,8 @@ export function mountGate(target: Element | string, opts: GateMountOptions = {})
 }
 
 /** Auto-mount declarative embeds:
- *   <div data-bluechip-subscribe data-pool="bluechip1..." data-amount="25"></div>
- *   <div data-bluechip-gate data-pool="bluechip1..." data-min-usd="5">gated content</div>
+ *   <div data-bluechip-subscribe data-pool="osmo1..." data-amount="25"></div>
+ *   <div data-bluechip-gate data-pool="osmo1..." data-min-usd="5">gated content</div>
  */
 export function scan(root: ParentNode = document): void {
     root.querySelectorAll('[data-bluechip-subscribe]').forEach((el) => {

@@ -41,10 +41,12 @@ test('deadlineNs is nanoseconds 20 minutes out', () => {
 
 test('pre-threshold commit msg has null max_spread and the exact contract shape', () => {
     const nowMs = 1_700_000_000_000;
-    const msg = buildCommitMsg({ denom: 'ubluechip', amountMicro: '25000000', thresholdHit: false, nowMs });
+    const msg = buildCommitMsg({ denom: 'uosmo', amountMicro: '25000000', thresholdHit: false, nowMs });
     assert.deepEqual(msg, {
         commit: {
-            asset: { info: { bluechip: { denom: 'ubluechip' } }, amount: '25000000' },
+            // Native side is wire-tagged "bluechip" (legacy serde rename)
+            // even though the denom is uosmo on Osmosis.
+            asset: { info: { bluechip: { denom: 'uosmo' } }, amount: '25000000' },
             transaction_deadline: deadlineNs(20, nowMs),
             belief_price: null,
             max_spread: null,
@@ -53,24 +55,24 @@ test('pre-threshold commit msg has null max_spread and the exact contract shape'
 });
 
 test('post-threshold commit msg carries a spread guard', () => {
-    const msg = buildCommitMsg({ denom: 'ubluechip', amountMicro: '1000000', thresholdHit: true });
+    const msg = buildCommitMsg({ denom: 'uosmo', amountMicro: '1000000', thresholdHit: true });
     assert.equal(msg.commit.max_spread, '0.05');
 });
 
-test('commit funds are exactly one coin of the bluechip denom', () => {
-    assert.deepEqual(commitFunds('ubluechip', '5000000'), [{ denom: 'ubluechip', amount: '5000000' }]);
+test('commit funds are exactly one coin of the native denom', () => {
+    assert.deepEqual(commitFunds('uosmo', '5000000'), [{ denom: 'uosmo', amount: '5000000' }]);
 });
 
 test('smartQueryUrl base64-encodes the query into the LCD path', () => {
-    const url = smartQueryUrl('https://rest.example/', 'bluechip1pool', committingInfoQuery('bluechip1fan'));
-    const expected = Buffer.from(JSON.stringify({ committing_info: { wallet: 'bluechip1fan' } })).toString('base64');
-    assert.equal(url, `https://rest.example/cosmwasm/wasm/v1/contract/bluechip1pool/smart/${encodeURIComponent(expected)}`);
+    const url = smartQueryUrl('https://rest.example/', 'osmo1pool', committingInfoQuery('osmo1fan'));
+    const expected = Buffer.from(JSON.stringify({ committing_info: { wallet: 'osmo1fan' } })).toString('base64');
+    assert.equal(url, `https://rest.example/cosmwasm/wasm/v1/contract/osmo1pool/smart/${encodeURIComponent(expected)}`);
 });
 
 const RECORD: CommitRecord = {
-    committer: 'bluechip1fan',
+    committer: 'osmo1fan',
     total_paid_usd: '7500000',       // $7.50
-    total_paid_bluechip: '60000000',
+    total_paid_bluechip: '60000000', // legacy field name; uosmo micro-units
     last_committed: '1700000000000000000',
     last_payment_usd: '5000000',
     last_payment_bluechip: '40000000',

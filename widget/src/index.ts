@@ -2,7 +2,7 @@
 // (see build.mjs), so a site embeds it with a single script tag:
 //
 //   <script src="https://cdn.jsdelivr.net/gh/Bluechip23/bluechipblockexplorer@main/widget/dist/bluechip-widget.min.js"></script>
-//   <div data-bluechip-subscribe data-pool="bluechip1yourpool"></div>
+//   <div data-bluechip-subscribe data-pool="osmo1yourpool"></div>
 
 import { init, getConfig } from './config.ts';
 import { connect, disconnect, getAddress, subscribe, checkSubscription } from './chain.ts';
