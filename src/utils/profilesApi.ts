@@ -31,11 +31,25 @@ export interface CreatorLink {
     url?: string;
     gated: boolean;
     position: number;
+    /** Ids of the tiers that gate this link (empty = public). */
+    tier_ids: number[];
+}
+
+// A named subscription tier priced in micro-USD (6 decimals, matching the
+// pool's committing_info.total_paid_usd). Each tier belongs to one of the
+// creator's pools.
+export interface Tier {
+    id: number;
+    pool_address: string;
+    name: string;
+    price_usd: string;   // micro-USD integer string
+    position: number;
 }
 
 export interface ProfileWithLinks {
     profile: CreatorProfile;
     links: CreatorLink[];
+    tiers: Tier[];
 }
 
 export interface ProfileSearchResult {
@@ -174,7 +188,9 @@ async function buildSignedBody(
 interface DemoEntry {
     profile: CreatorProfile;
     links: Array<Required<CreatorLink>>;
+    tiers: Tier[];
     nextId: number;
+    nextTierId: number;
 }
 
 interface DemoStore {
@@ -202,13 +218,22 @@ function saveDemoStore(store: DemoStore): void {
     }
 }
 
+// Backfill fields added after a demo entry may have been persisted, so older
+// localStorage data keeps working after an upgrade.
+function normalizeEntry(entry: DemoEntry): DemoEntry {
+    if (!Array.isArray(entry.tiers)) entry.tiers = [];
+    if (typeof entry.nextTierId !== 'number') entry.nextTierId = 1;
+    for (const l of entry.links) if (!Array.isArray(l.tier_ids)) l.tier_ids = [];
+    return entry;
+}
+
 function demoFindEntry(store: DemoStore, idOrName: string): DemoEntry | null {
     const direct = store.profiles[idOrName];
-    if (direct) return direct;
+    if (direct) return normalizeEntry(direct);
     const needle = idOrName.trim().toLowerCase();
     for (const entry of Object.values(store.profiles)) {
-        if (entry.profile.name.toLowerCase() === needle) return entry;
-        if (entry.profile.pool_address === idOrName) return entry;
+        if (entry.profile.name.toLowerCase() === needle) return normalizeEntry(entry);
+        if (entry.profile.pool_address === idOrName) return normalizeEntry(entry);
     }
     return null;
 }
@@ -217,8 +242,8 @@ function demoPublicLinks(entry: DemoEntry): CreatorLink[] {
     return [...entry.links]
         .sort((a, b) => a.position - b.position || a.id - b.id)
         .map((l) => (l.gated
-            ? { id: l.id, title: l.title, gated: true, position: l.position }
-            : { id: l.id, title: l.title, url: l.url, gated: false, position: l.position }));
+            ? { id: l.id, title: l.title, gated: true, position: l.position, tier_ids: l.tier_ids }
+            : { id: l.id, title: l.title, url: l.url, gated: false, position: l.position, tier_ids: l.tier_ids }));
 }
 
 // ---------------------------------------------------------------------------
@@ -229,7 +254,7 @@ export async function getProfile(idOrName: string): Promise<ProfileWithLinks | n
     if (!idOrName) return null;
     if ((await getMode()) === 'demo') {
         const entry = demoFindEntry(loadDemoStore(), idOrName);
-        return entry ? { profile: entry.profile, links: demoPublicLinks(entry) } : null;
+        return entry ? { profile: entry.profile, links: demoPublicLinks(entry), tiers: entry.tiers } : null;
     }
     return fetchJson<ProfileWithLinks>(`/profiles/${encodeURIComponent(idOrName)}`);
 }
@@ -280,7 +305,9 @@ export async function saveProfile(
         store.profiles[address] = {
             profile: { wallet_address: address, name, pool_address: input.pool_address, bio: input.bio },
             links: existing?.links ?? [],
+            tiers: existing?.tiers ?? [],
             nextId: existing?.nextId ?? 1,
+            nextTierId: existing?.nextTierId ?? 1,
         };
         saveDemoStore(store);
         return { ok: true };
@@ -302,7 +329,8 @@ export async function saveProfile(
 export interface LinkInput {
     title: string;
     url: string;
-    gated: boolean;
+    /** Ids of the tiers gating the link. A non-empty array makes it gated. */
+    tier_ids: number[];
     position?: number;
 }
 
@@ -313,16 +341,19 @@ export async function addLink(
 ): Promise<WriteResult> {
     if ((await getMode()) === 'demo') {
         const store = loadDemoStore();
-        const entry = store.profiles[address];
-        if (!entry) return { ok: false, error: 'create a profile first' };
+        const raw = store.profiles[address];
+        if (!raw) return { ok: false, error: 'create a profile first' };
+        const entry = normalizeEntry(raw);
         if (entry.links.length >= 50) return { ok: false, error: 'at most 50 links per profile' };
         const position = input.position ?? (entry.links.reduce((m, l) => Math.max(m, l.position), -1) + 1);
+        const tierIds = input.tier_ids ?? [];
         entry.links.push({
             id: entry.nextId,
             title: input.title,
             url: input.url,
-            gated: input.gated,
+            gated: tierIds.length > 0,
             position,
+            tier_ids: tierIds,
         });
         entry.nextId += 1;
         saveDemoStore(store);
@@ -333,7 +364,7 @@ export async function addLink(
             intent: 'add_link',
             title: input.title,
             url: input.url,
-            gated: input.gated,
+            tier_ids: input.tier_ids,
             position: input.position,
         });
         const res = await fetchWrite('/links', 'POST', body);
@@ -346,7 +377,8 @@ export async function addLink(
 export interface LinkPatch {
     title?: string;
     url?: string;
-    gated?: boolean;
+    /** When provided, replaces the link's tiers and re-derives gated. */
+    tier_ids?: number[];
     position?: number;
 }
 
@@ -358,12 +390,17 @@ export async function updateLink(
 ): Promise<WriteResult> {
     if ((await getMode()) === 'demo') {
         const store = loadDemoStore();
-        const entry = store.profiles[address];
-        const link = entry?.links.find((l) => l.id === id);
-        if (!entry || !link) return { ok: false, error: 'link not found' };
+        const rawEntry = store.profiles[address];
+        if (!rawEntry) return { ok: false, error: 'link not found' };
+        const entry = normalizeEntry(rawEntry);
+        const link = entry.links.find((l) => l.id === id);
+        if (!link) return { ok: false, error: 'link not found' };
         if (patch.title !== undefined) link.title = patch.title;
         if (patch.url !== undefined) link.url = patch.url;
-        if (patch.gated !== undefined) link.gated = patch.gated;
+        if (patch.tier_ids !== undefined) {
+            link.tier_ids = patch.tier_ids;
+            link.gated = patch.tier_ids.length > 0;
+        }
         if (patch.position !== undefined) link.position = patch.position;
         saveDemoStore(store);
         return { ok: true };
@@ -374,7 +411,7 @@ export async function updateLink(
             id,
             title: patch.title,
             url: patch.url,
-            gated: patch.gated,
+            tier_ids: patch.tier_ids,
             position: patch.position,
         });
         const res = await fetchWrite(`/links/${id}`, 'PUT', body);
@@ -406,6 +443,124 @@ export async function deleteLink(
     }
 }
 
+// ---------------------------------------------------------------------------
+// Subscription tiers (signed writes; localStorage in demo mode). Prices are
+// micro-USD integer strings end-to-end.
+// ---------------------------------------------------------------------------
+
+export interface TierInput {
+    pool_address: string;
+    name: string;
+    price_usd: string;   // micro-USD integer string
+}
+
+export async function addTier(
+    address: string,
+    walletName: string | null,
+    input: TierInput,
+): Promise<WriteResult> {
+    if ((await getMode()) === 'demo') {
+        const store = loadDemoStore();
+        const raw = store.profiles[address];
+        if (!raw) return { ok: false, error: 'create a profile first' };
+        const entry = normalizeEntry(raw);
+        if (entry.tiers.length >= 5) return { ok: false, error: 'at most 5 subscription tiers per creator' };
+        const position = entry.tiers.reduce((m, t) => Math.max(m, t.position), -1) + 1;
+        entry.tiers.push({
+            id: entry.nextTierId,
+            pool_address: input.pool_address,
+            name: input.name,
+            price_usd: input.price_usd,
+            position,
+        });
+        entry.nextTierId += 1;
+        saveDemoStore(store);
+        return { ok: true };
+    }
+    try {
+        const body = await buildSignedBody(address, walletName, {
+            intent: 'add_tier',
+            pool_address: input.pool_address,
+            name: input.name,
+            price_usd: input.price_usd,
+        });
+        const res = await fetchWrite('/tiers', 'POST', body);
+        return res.error ? { ok: false, error: res.error } : { ok: true };
+    } catch (err) {
+        return { ok: false, error: err instanceof Error ? err.message : 'tier create failed' };
+    }
+}
+
+export interface TierPatch {
+    name?: string;
+    price_usd?: string;
+    position?: number;
+}
+
+export async function updateTier(
+    address: string,
+    walletName: string | null,
+    id: number,
+    patch: TierPatch,
+): Promise<WriteResult> {
+    if ((await getMode()) === 'demo') {
+        const store = loadDemoStore();
+        const raw = store.profiles[address];
+        if (!raw) return { ok: false, error: 'tier not found' };
+        const entry = normalizeEntry(raw);
+        const tier = entry.tiers.find((t) => t.id === id);
+        if (!tier) return { ok: false, error: 'tier not found' };
+        if (patch.name !== undefined) tier.name = patch.name;
+        if (patch.price_usd !== undefined) tier.price_usd = patch.price_usd;
+        if (patch.position !== undefined) tier.position = patch.position;
+        saveDemoStore(store);
+        return { ok: true };
+    }
+    try {
+        const body = await buildSignedBody(address, walletName, {
+            intent: 'update_tier',
+            id,
+            name: patch.name,
+            price_usd: patch.price_usd,
+            position: patch.position,
+        });
+        const res = await fetchWrite(`/tiers/${id}`, 'PUT', body);
+        return res.error ? { ok: false, error: res.error } : { ok: true };
+    } catch (err) {
+        return { ok: false, error: err instanceof Error ? err.message : 'tier update failed' };
+    }
+}
+
+export async function deleteTier(
+    address: string,
+    walletName: string | null,
+    id: number,
+): Promise<WriteResult> {
+    if ((await getMode()) === 'demo') {
+        const store = loadDemoStore();
+        const raw = store.profiles[address];
+        if (!raw) return { ok: false, error: 'tier not found' };
+        const entry = normalizeEntry(raw);
+        entry.tiers = entry.tiers.filter((t) => t.id !== id);
+        // Drop the tier from any link that referenced it; re-derive gated.
+        for (const l of entry.links) {
+            if (l.tier_ids.includes(id)) {
+                l.tier_ids = l.tier_ids.filter((tid) => tid !== id);
+                l.gated = l.tier_ids.length > 0;
+            }
+        }
+        saveDemoStore(store);
+        return { ok: true };
+    }
+    try {
+        const body = await buildSignedBody(address, walletName, { intent: 'delete_tier', id });
+        const res = await fetchWrite(`/tiers/${id}`, 'DELETE', body);
+        return res.error ? { ok: false, error: res.error } : { ok: true };
+    } catch (err) {
+        return { ok: false, error: err instanceof Error ? err.message : 'tier delete failed' };
+    }
+}
+
 /**
  * Unlocks the gated links of `owner` (wallet, name, or pool address) for the
  * connected wallet. In API mode this round-trips the server, which checks the
@@ -423,7 +578,7 @@ export async function unlockLinks(
         return {
             ok: true,
             value: entry.links.filter((l) => l.gated).map((l) => ({
-                id: l.id, title: l.title, url: l.url, gated: true, position: l.position,
+                id: l.id, title: l.title, url: l.url, gated: true, position: l.position, tier_ids: l.tier_ids,
             })),
         };
     }

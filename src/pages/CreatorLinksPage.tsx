@@ -32,6 +32,7 @@ import {
     getProfile,
     isProfilesDemoMode,
     ProfileWithLinks,
+    Tier,
     unlockLinks,
 } from '../utils/profilesApi';
 import CommitDialog from '../components/creator-links/CommitDialog';
@@ -154,6 +155,15 @@ const CreatorLinksPage: React.FC = () => {
         : [];
     const lockedLinks = links.filter((l) => l.gated && !unlockedUrls[l.id]);
     const ownerKey = profileData?.profile.wallet_address ?? idOrName ?? '';
+    const tiers: Tier[] = profileData
+        ? [...profileData.tiers].sort((a, b) => a.position - b.position || a.id - b.id)
+        : [];
+    // Tiers on the featured pool feed the CommitDialog's price references.
+    const tiersForPool = poolAddress ? tiers.filter((t) => t.pool_address === poolAddress) : [];
+    const tierPoolSymbol = (pool: string): string =>
+        (poolSummary && pool === poolAddress
+            ? sanitizeOnChainString(poolSummary.tokenSymbol, 16)
+            : abbreviateAddress(pool));
 
     const mergeUnlocked = useCallback((revealed: CreatorLink[]) => {
         setUnlockedUrls((prev) => {
@@ -225,6 +235,7 @@ const CreatorLinksPage: React.FC = () => {
                 poolAddress={poolAddress}
                 tokenSymbol={poolSummary?.tokenSymbol}
                 thresholdReached={poolSummary?.thresholdReached ?? false}
+                tiers={tiersForPool}
             />
             <ProvideLiquidityDialog
                 open={liquidityOpen}
@@ -292,6 +303,40 @@ const CreatorLinksPage: React.FC = () => {
                             </Card>
 
                             {actionsRow}
+
+                            {/* Subscription tiers on offer */}
+                            {tiers.length > 0 && (
+                                <Card>
+                                    <CardContent>
+                                        <Typography variant="subtitle1" fontWeight="bold" sx={{ mb: 1 }}>
+                                            Subscription tiers
+                                        </Typography>
+                                        <Stack spacing={0.75}>
+                                            {tiers.map((t) => (
+                                                <Stack
+                                                    key={t.id}
+                                                    direction="row"
+                                                    spacing={1}
+                                                    alignItems="center"
+                                                    justifyContent="space-between"
+                                                    flexWrap="wrap"
+                                                    useFlexGap
+                                                >
+                                                    <Stack direction="row" spacing={1} alignItems="center">
+                                                        <Typography variant="body2" fontWeight="bold">
+                                                            {sanitizeOnChainString(t.name, 40)}
+                                                        </Typography>
+                                                        <Chip size="small" label={tierPoolSymbol(t.pool_address)} />
+                                                    </Stack>
+                                                    <Typography variant="body2" color="text.secondary">
+                                                        ${formatMicroAmount(t.price_usd, 6, 2)}
+                                                    </Typography>
+                                                </Stack>
+                                            ))}
+                                        </Stack>
+                                    </CardContent>
+                                </Card>
+                            )}
 
                             {/* Gated-links hint + verification */}
                             {lockedLinks.length > 0 && (

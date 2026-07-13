@@ -43,6 +43,32 @@ CREATE TABLE IF NOT EXISTS nonces (
     nonce TEXT NOT NULL,
     issued_at INTEGER NOT NULL
 );
+
+-- Subscription tiers. A creator defines up to MAX_TIERS named tiers total
+-- (across all their pools); each tier belongs to exactly one of the pools
+-- their wallet created (ownership verified on-chain before insert). price_usd
+-- is a micro-USD integer string (6 decimals), matching committing_info's
+-- total_paid_usd so the gate check is a plain integer comparison.
+CREATE TABLE IF NOT EXISTS tiers (
+    id INTEGER PRIMARY KEY AUTOINCREMENT,
+    wallet_address TEXT NOT NULL REFERENCES profiles(wallet_address) ON DELETE CASCADE,
+    pool_address TEXT NOT NULL,
+    name TEXT NOT NULL,
+    price_usd TEXT NOT NULL,
+    position INTEGER NOT NULL DEFAULT 0,
+    created_at INTEGER NOT NULL,
+    updated_at INTEGER NOT NULL
+);
+CREATE INDEX IF NOT EXISTS idx_tiers_wallet ON tiers(wallet_address, position);
+
+-- Which tiers gate a link (many-to-many). A link is "gated" when it has ≥1
+-- row here; the links.gated column is a denormalized cache of that fact.
+CREATE TABLE IF NOT EXISTS link_tiers (
+    link_id INTEGER NOT NULL REFERENCES links(id) ON DELETE CASCADE,
+    tier_id INTEGER NOT NULL REFERENCES tiers(id) ON DELETE CASCADE,
+    PRIMARY KEY (link_id, tier_id)
+);
+CREATE INDEX IF NOT EXISTS idx_link_tiers_tier ON link_tiers(tier_id);
 `);
 }
 
@@ -74,6 +100,17 @@ export interface NonceRow {
     wallet_address: string;
     nonce: string;
     issued_at: number;
+}
+
+export interface TierRow {
+    id: number;
+    wallet_address: string;
+    pool_address: string;
+    name: string;
+    price_usd: string;
+    position: number;
+    created_at: number;
+    updated_at: number;
 }
 
 // ---------------------------------------------------------------------------
@@ -176,6 +213,93 @@ export function updateLink(db: Db, id: number, patch: {
 
 export function deleteLink(db: Db, id: number): void {
     db.prepare('DELETE FROM links WHERE id = ?').run(id);
+}
+
+// ---------------------------------------------------------------------------
+// Subscription tiers + link↔tier gating
+// ---------------------------------------------------------------------------
+
+export function listTiers(db: Db, wallet: string): TierRow[] {
+    return db.prepare(
+        'SELECT * FROM tiers WHERE wallet_address = ? ORDER BY position ASC, id ASC',
+    ).all(wallet) as TierRow[];
+}
+
+export function countTiers(db: Db, wallet: string): number {
+    const row = db.prepare('SELECT COUNT(*) AS n FROM tiers WHERE wallet_address = ?').get(wallet) as { n: number };
+    return row.n;
+}
+
+export function getTier(db: Db, id: number): TierRow | undefined {
+    return db.prepare('SELECT * FROM tiers WHERE id = ?').get(id) as TierRow | undefined;
+}
+
+export function maxTierPosition(db: Db, wallet: string): number {
+    const row = db.prepare(
+        'SELECT COALESCE(MAX(position), -1) AS p FROM tiers WHERE wallet_address = ?',
+    ).get(wallet) as { p: number };
+    return row.p;
+}
+
+export function insertTier(db: Db, t: {
+    wallet_address: string; pool_address: string; name: string; price_usd: string; position: number;
+}): TierRow {
+    const now = Math.floor(Date.now() / 1000);
+    const info = db.prepare(`INSERT INTO tiers (wallet_address, pool_address, name, price_usd, position, created_at, updated_at)
+        VALUES (@wallet_address, @pool_address, @name, @price_usd, @position, @now, @now)`).run({ ...t, now });
+    return getTier(db, Number(info.lastInsertRowid))!;
+}
+
+export function updateTier(db: Db, id: number, patch: {
+    name?: string; price_usd?: string; position?: number;
+}): TierRow | undefined {
+    const existing = getTier(db, id);
+    if (!existing) return undefined;
+    const now = Math.floor(Date.now() / 1000);
+    db.prepare(`UPDATE tiers SET
+        name = @name, price_usd = @price_usd, position = @position, updated_at = @now
+        WHERE id = @id`).run({
+        id,
+        name: patch.name ?? existing.name,
+        price_usd: patch.price_usd ?? existing.price_usd,
+        position: patch.position ?? existing.position,
+        now,
+    });
+    return getTier(db, id);
+}
+
+export function deleteTier(db: Db, id: number): void {
+    db.prepare('DELETE FROM tiers WHERE id = ?').run(id);
+}
+
+/** Replace-all the set of tiers gating a link. */
+export function setLinkTiers(db: Db, linkId: number, tierIds: number[]): void {
+    const tx = db.transaction((ids: number[]) => {
+        db.prepare('DELETE FROM link_tiers WHERE link_id = ?').run(linkId);
+        const ins = db.prepare('INSERT OR IGNORE INTO link_tiers (link_id, tier_id) VALUES (?, ?)');
+        for (const tid of ids) ins.run(linkId, tid);
+    });
+    tx(tierIds);
+}
+
+export function getLinkTierIds(db: Db, linkId: number): number[] {
+    const rows = db.prepare(
+        'SELECT tier_id FROM link_tiers WHERE link_id = ? ORDER BY tier_id ASC',
+    ).all(linkId) as { tier_id: number }[];
+    return rows.map((r) => r.tier_id);
+}
+
+/**
+ * The full tier rows gating a link (joined through link_tiers). Used by the
+ * unlock gate check, which groups these by pool to find each pool's cheapest
+ * gating price.
+ */
+export function getLinkTiers(db: Db, linkId: number): TierRow[] {
+    return db.prepare(`
+        SELECT t.* FROM tiers t
+        JOIN link_tiers lt ON lt.tier_id = t.id
+        WHERE lt.link_id = ?
+        ORDER BY t.pool_address ASC, t.id ASC`).all(linkId) as TierRow[];
 }
 
 // ---------------------------------------------------------------------------

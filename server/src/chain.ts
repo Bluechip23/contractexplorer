@@ -39,3 +39,33 @@ export async function queryCommittingInfo(
     });
     return (info ?? null) as CommittingInfo | null;
 }
+
+/**
+ * Returns the pool's creator wallet (from the `fee_info {}` smart query), or
+ * null when the response carries no creator. Throws when the RPC / contract
+ * query itself fails so the caller can distinguish "not the owner" from
+ * "could not check" (502).
+ */
+export async function queryPoolCreator(
+    rpcUrl: string,
+    poolAddress: string,
+): Promise<string | null> {
+    const client = await getClient(rpcUrl);
+    const res = await client.queryContractSmart(poolAddress, { fee_info: {} }) as
+        { fee_info?: { creator_wallet_address?: string } } | null;
+    return res?.fee_info?.creator_wallet_address ?? null;
+}
+
+/**
+ * True when `wallet` is the on-chain creator of `poolAddress`. Throws on RPC
+ * failure (so the API layer can answer 502 rather than silently reject a
+ * legitimate owner).
+ */
+export async function assertPoolOwned(
+    rpcUrl: string,
+    poolAddress: string,
+    wallet: string,
+): Promise<boolean> {
+    const creator = await queryPoolCreator(rpcUrl, poolAddress);
+    return creator === wallet;
+}
