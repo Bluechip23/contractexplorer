@@ -6,7 +6,6 @@ import {
     List,
     ListItem,
     Tooltip,
-    ListSubheader,
 } from '@mui/material';
 import HomeIcon from '@mui/icons-material/Home';
 import HotTubIcon from '@mui/icons-material/HotTub';
@@ -14,7 +13,7 @@ import MonetizationOnIcon from '@mui/icons-material/MonetizationOn';
 import TipsAndUpdatesIcon from '@mui/icons-material/TipsAndUpdates';
 import RocketLaunchIcon from '@mui/icons-material/RocketLaunch';
 import LinkIcon from '@mui/icons-material/Link';
-import BrushIcon from '@mui/icons-material/Brush';
+import InsightsIcon from '@mui/icons-material/Insights';
 import PaletteIcon from '@mui/icons-material/Palette';
 import PersonSearchIcon from '@mui/icons-material/PersonSearch';
 import { Link, useLocation } from 'react-router-dom';
@@ -46,7 +45,7 @@ const portfolioItems: Item[] = [
     {
         title: 'Creator Portfolio',
         subtitle: 'Your pools, tokens & revenue',
-        icon: <BrushIcon />,
+        icon: <InsightsIcon />,
         link: '/portfolio/creator',
     },
     {
@@ -89,9 +88,6 @@ const BlockExpSideBar: React.FC = () => {
             ))}
 
             <Divider sx={{ my: 1 }} />
-            <ListSubheader component="div" disableSticky sx={{ lineHeight: '32px' }}>
-                My Portfolio
-            </ListSubheader>
             {portfolioItems.map((item) => (
                 <SidebarLink key={item.link} item={item} selected={location.pathname === item.link} />
             ))}
