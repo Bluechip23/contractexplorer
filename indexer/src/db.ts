@@ -23,7 +23,7 @@ CREATE TABLE IF NOT EXISTS cursor (
 CREATE TABLE IF NOT EXISTS pools (
     address TEXT PRIMARY KEY,
     pool_id INTEGER,
-    kind TEXT NOT NULL,                -- 'commit' | 'standard'
+    kind TEXT NOT NULL,                -- always 'commit' (standard pools removed)
     created_height INTEGER NOT NULL,
     created_at INTEGER NOT NULL,       -- unix seconds (block time)
     threshold_crossed_at INTEGER       -- unix seconds, NULL pre-threshold
@@ -115,7 +115,7 @@ CREATE INDEX IF NOT EXISTS idx_claims_pool_ts ON creator_claims(pool, ts);
 export interface PoolRow {
     address: string;
     pool_id: number | null;
-    kind: 'commit' | 'standard';
+    kind: 'commit';
     created_height: number;
     created_at: number;
 }
@@ -174,9 +174,34 @@ export function markThresholdCrossed(db: Db, pool: string, ts: number): void {
 }
 
 export function insertCommit(db: Db, r: CommitRow): void {
+    // The Osmosis contract emits only the cumulative USD raised
+    // (`total_raised_after` -> usd_raised_after), not a per-commit USD
+    // amount. Derive amount_usd as the increase over the pool's previous
+    // cumulative so the USD commit-series and creator statements keep
+    // working. Cumulative raise is monotonic during the funding phase, so
+    // the delta against the immediately preceding commit is exact. This is
+    // deterministic on re-ingest because backfill inserts commits in
+    // (height, event_index) order and each height commits atomically.
+    let amountUsd = r.amount_usd;
+    if (amountUsd === null && r.usd_raised_after !== null) {
+        const prev = db.prepare(
+            `SELECT usd_raised_after FROM commits
+             WHERE pool = ? AND usd_raised_after IS NOT NULL
+               AND (height < ? OR (height = ? AND event_index < ?))
+             ORDER BY height DESC, event_index DESC LIMIT 1`
+        ).get(r.pool, r.height, r.height, r.event_index) as { usd_raised_after: string } | undefined;
+        try {
+            const prevCum = prev ? BigInt(prev.usd_raised_after) : 0n;
+            const delta = BigInt(r.usd_raised_after) - prevCum;
+            amountUsd = (delta > 0n ? delta : 0n).toString();
+        } catch {
+            amountUsd = null;
+        }
+    }
     db.prepare(`INSERT OR REPLACE INTO commits
         (txhash, event_index, height, ts, pool, committer, phase, amount_bluechip, amount_usd, usd_raised_after, bluechip_raised_after, tokens_received)
-        VALUES (@txhash, @event_index, @height, @ts, @pool, @committer, @phase, @amount_bluechip, @amount_usd, @usd_raised_after, @bluechip_raised_after, @tokens_received)`).run(r);
+        VALUES (@txhash, @event_index, @height, @ts, @pool, @committer, @phase, @amount_bluechip, @amount_usd, @usd_raised_after, @bluechip_raised_after, @tokens_received)`)
+        .run({ ...r, amount_usd: amountUsd });
 }
 
 export function insertTrade(db: Db, r: TradeRow): void {

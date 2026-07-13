@@ -17,8 +17,12 @@ cd indexer
 npm install
 npm run build
 
-RPC_URL=https://bluechip.rpc.bluechip.link \
-FACTORY_ADDRESS=bluechip1yourfactoryaddress \
+# Point RPC_URL at an Osmosis ARCHIVE node — the indexer reads
+# /block_results, which most public RPCs prune. FACTORY_ADDRESS defaults
+# to the osmo-test-5 deployment; override it for mainnet (osmosis-1).
+RPC_URL=https://your-osmosis-archive-node:26657 \
+FACTORY_ADDRESS=osmo1p93hcfzjnjfv0vtfxmunpqc25tq3p2vzh76hq3wxfz2zyayw4hzq4ac3vt \
+START_HEIGHT=<factory deploy height> \
 npm start
 ```
 
@@ -34,12 +38,12 @@ Point the explorer at it by setting `REACT_APP_INDEXER_URL` (defaults to
 
 | Variable | Default | Meaning |
 |---|---|---|
-| `RPC_URL` | `http://localhost:26657` | Tendermint/CometBFT RPC of any chain node |
+| `RPC_URL` | `http://localhost:26657` | Tendermint/CometBFT RPC of an Osmosis **archive** node (`/block_results` must not be pruned) |
 | `API_PORT` | `4316` | REST API port |
 | `DB_PATH` | `./bluechip-indexer.db` | SQLite file location |
 | `START_HEIGHT` | `1` | First height to index (set to the factory's deploy height to skip empty history; **must** be within your node's unpruned range) |
-| `NATIVE_DENOM` | `ubluechip` | Canonical bluechip denom; used to classify swap direction (buy vs sell) |
-| `FACTORY_ADDRESS` | *(unset)* | When set, only this contract can register new pools (recommended — prevents spoofed `pool_created` events from unrelated contracts) |
+| `NATIVE_DENOM` | `uosmo` | Osmosis native denom; used to classify swap direction (buy vs sell) |
+| `FACTORY_ADDRESS` | *(osmo-test-5 factory)* | Only this contract can register new pools (prevents spoofed `pool_created` events). Defaults to the testnet deployment; **override for mainnet** |
 | `POLL_INTERVAL_MS` | `1500` | How often to check for new blocks once caught up |
 | `BATCH_SIZE` | `20` | Heights ingested per batch during backfill |
 
@@ -47,7 +51,7 @@ Point the explorer at it by setting `REACT_APP_INDEXER_URL` (defaults to
 
 All endpoints are `GET`, return JSON, and allow CORS. Time parameters are
 unix **seconds**; token amounts are micro-unit **strings** (6 decimals);
-`price` is bluechip-per-token.
+`price` is native(OSMO)-per-token.
 
 | Endpoint | Query params | Returns |
 |---|---|---|
@@ -101,8 +105,8 @@ feed would under-report buy pressure without them.
 docker build -t bluechip-indexer ./indexer
 docker run -d --name bluechip-indexer \
   -p 4316:4316 -v bluechip-indexer-data:/data \
-  -e RPC_URL=https://your-node:26657 \
-  -e FACTORY_ADDRESS=bluechip1yourfactory \
+  -e RPC_URL=https://your-osmosis-archive-node:26657 \
+  -e FACTORY_ADDRESS=osmo1p93hcfzjnjfv0vtfxmunpqc25tq3p2vzh76hq3wxfz2zyayw4hzq4ac3vt \
   -e START_HEIGHT=1 \
   bluechip-indexer
 ```
@@ -117,7 +121,7 @@ After=network-online.target
 [Service]
 WorkingDirectory=/opt/bluechip-indexer
 Environment=RPC_URL=http://127.0.0.1:26657
-Environment=FACTORY_ADDRESS=bluechip1yourfactory
+Environment=FACTORY_ADDRESS=osmo1p93hcfzjnjfv0vtfxmunpqc25tq3p2vzh76hq3wxfz2zyayw4hzq4ac3vt
 ExecStart=/usr/bin/node dist/index.js
 Restart=always
 RestartSec=5

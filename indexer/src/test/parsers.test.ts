@@ -3,29 +3,35 @@ import { test } from 'node:test';
 import { parseTxEvents, TxContext } from '../parsers';
 import { decodeEventAttrs, RawEvent } from '../rpc';
 
+// Event fixtures below mirror what the Osmosis BlueChip contracts actually
+// emit (verified against bluechip-osmosis-contract): the native side is
+// uosmo, commit events carry only *_bluechip amounts plus the cumulative
+// `total_raised_after` (no per-commit USD attribute — amount_usd is derived
+// at the DB layer, so the parser leaves it null).
+
 const CTX: TxContext = {
     txhash: 'ABC123',
     height: 100,
     ts: 1_700_000_000,
-    nativeDenom: 'ubluechip',
-    factoryAddress: 'bluechip1factory',
+    nativeDenom: 'uosmo',
+    factoryAddress: 'osmo1factory',
 };
 
-const POOL = 'bluechip1pool';
+const POOL = 'osmo1pool';
 
 function wasm(attrs: Record<string, string>): RawEvent {
     return { type: 'wasm', attributes: Object.entries(attrs).map(([key, value]) => ({ key, value })) };
 }
 
-test('swap event with native offer parses as buy with bluechip-per-token price', () => {
+test('swap event with native offer parses as buy with native-per-token price', () => {
     const out = parseTxEvents(CTX, [wasm({
         _contract_address: POOL,
         action: 'swap',
-        sender: 'bluechip1trader',
-        receiver: 'bluechip1trader',
-        offer_asset: 'ubluechip',
-        ask_asset: 'bluechip1token',
-        offer_amount: '1000000',     // 1 bluechip
+        sender: 'osmo1trader',
+        receiver: 'osmo1trader',
+        offer_asset: 'uosmo',
+        ask_asset: 'osmo1token',
+        offer_amount: '1000000',     // 1 OSMO
         return_amount: '2000000',    // 2 tokens
         spread_amount: '100',
         commission_amount: '3000',
@@ -37,36 +43,35 @@ test('swap event with native offer parses as buy with bluechip-per-token price',
     const t = out.trades[0];
     assert.equal(t.side, 'buy');
     assert.equal(t.source, 'swap');
-    assert.equal(t.trader, 'bluechip1trader');
+    assert.equal(t.trader, 'osmo1trader');
     assert.equal(t.offer_amount, '1000000');
     assert.equal(t.return_amount, '2000000');
-    assert.ok(Math.abs((t.price ?? 0) - 0.5) < 1e-9);   // 1 bluechip / 2 tokens
+    assert.ok(Math.abs((t.price ?? 0) - 0.5) < 1e-9);   // 1 OSMO / 2 tokens
 });
 
 test('swap event with cw20 offer parses as sell', () => {
     const out = parseTxEvents(CTX, [wasm({
         _contract_address: POOL,
         action: 'swap',
-        sender: 'bluechip1seller',
-        offer_asset: 'bluechip1token',
-        ask_asset: 'ubluechip',
+        sender: 'osmo1seller',
+        offer_asset: 'osmo1token',
+        ask_asset: 'uosmo',
         offer_amount: '4000000',     // 4 tokens
-        return_amount: '1000000',    // 1 bluechip
+        return_amount: '1000000',    // 1 OSMO
         pool_contract: POOL,
     })]);
     assert.equal(out.trades[0].side, 'sell');
-    assert.ok(Math.abs((out.trades[0].price ?? 0) - 0.25) < 1e-9);   // 1 bluechip / 4 tokens
+    assert.ok(Math.abs((out.trades[0].price ?? 0) - 0.25) < 1e-9);   // 1 OSMO / 4 tokens
 });
 
-test('funding-phase commit parses amounts and raises no trade', () => {
+test('funding-phase commit parses bluechip amount + cumulative raise, no trade, USD left to DB', () => {
     const out = parseTxEvents(CTX, [wasm({
         _contract_address: POOL,
         action: 'commit',
         phase: 'funding',
-        committer: 'bluechip1fan',
+        committer: 'osmo1fan',
         commit_amount_bluechip: '8000000',
-        commit_amount_usd: '1000000',
-        total_usd_raised_after: '5000000',
+        total_raised_after: '5000000',
         total_bluechip_raised_after: '40000000',
         pool_contract: POOL,
     })]);
@@ -74,8 +79,12 @@ test('funding-phase commit parses amounts and raises no trade', () => {
     assert.equal(out.trades.length, 0);
     const c = out.commits[0];
     assert.equal(c.phase, 'funding');
-    assert.equal(c.amount_usd, '1000000');
+    assert.equal(c.amount_bluechip, '8000000');
+    // No per-commit USD attribute is emitted; the parser leaves amount_usd
+    // null and the DB derives it from the cumulative delta.
+    assert.equal(c.amount_usd, null);
     assert.equal(c.usd_raised_after, '5000000');
+    assert.equal(c.bluechip_raised_after, '40000000');
 });
 
 test('post-threshold ("active") commit produces a commit row AND a buy trade', () => {
@@ -83,9 +92,8 @@ test('post-threshold ("active") commit produces a commit row AND a buy trade', (
         _contract_address: POOL,
         action: 'commit',
         phase: 'active',
-        committer: 'bluechip1fan',
+        committer: 'osmo1fan',
         commit_amount_bluechip: '1000000',
-        commit_amount_usd: '125000',
         swap_amount_bluechip: '940000',     // net of fees
         tokens_received: '1880000',
         commission_amount: '2820',
@@ -104,34 +112,37 @@ test('post-threshold ("active") commit produces a commit row AND a buy trade', (
     assert.ok(Math.abs((t.price ?? 0) - 0.5) < 1e-9);
 });
 
-test('threshold-crossing commit normalizes total/threshold/swap amounts and marks the crossing', () => {
+test('threshold-crossing commit normalizes the total bluechip amount and marks the crossing', () => {
     const out = parseTxEvents(CTX, [wasm({
         _contract_address: POOL,
         action: 'commit',
         phase: 'threshold_crossing',
-        committer: 'bluechip1whale',
+        committer: 'osmo1whale',
         total_amount_bluechip: '99000000',
-        threshold_amount_usd: '11000000',
-        swap_amount_usd: '1000000',
+        threshold_amount_bluechip: '90000000',
+        swap_amount_bluechip: '9000000',
+        bluechip_excess_returned: '17900000',
+        reserve0_after: '9',
+        reserve1_after: '10',
         pool_contract: POOL,
     })]);
     assert.equal(out.commits[0].amount_bluechip, '99000000');
-    assert.equal(out.commits[0].amount_usd, '12000000');   // threshold + swap USD
+    assert.equal(out.commits[0].amount_usd, null);   // no USD emitted at crossing
     assert.deepEqual(out.thresholdCrossings, [{ pool: POOL, ts: CTX.ts }]);
 });
 
-test('exact threshold hit marks the crossing and keeps commit_amount_usd', () => {
+test('exact threshold hit marks the crossing and reports the cumulative raise', () => {
     const out = parseTxEvents(CTX, [wasm({
         _contract_address: POOL,
         action: 'commit',
         phase: 'threshold_hit_exact',
-        committer: 'bluechip1whale',
+        committer: 'osmo1whale',
         commit_amount_bluechip: '99000000',
-        commit_amount_usd: '12000000',
-        total_usd_raised_after: '25000000000',
+        total_raised_after: '25000000000',
         pool_contract: POOL,
     })]);
-    assert.equal(out.commits[0].amount_usd, '12000000');
+    assert.equal(out.commits[0].amount_bluechip, '99000000');
+    assert.equal(out.commits[0].usd_raised_after, '25000000000');
     assert.equal(out.trades.length, 0);
     assert.deepEqual(out.thresholdCrossings, [{ pool: POOL, ts: CTX.ts }]);
 });
@@ -139,19 +150,19 @@ test('exact threshold hit marks the crossing and keeps commit_amount_usd', () =>
 test('factory pool + token creation events register a pool with its token', () => {
     const out = parseTxEvents(CTX, [
         wasm({
-            _contract_address: 'bluechip1factory',
+            _contract_address: 'osmo1factory',
             action: 'token_created_successfully',
-            token_address: 'bluechip1token',
+            token_address: 'osmo1token',
             pool_id: '7',
         }),
         wasm({
-            _contract_address: 'bluechip1factory',
+            _contract_address: 'osmo1factory',
             action: 'pool_created_successfully',
             pool_address: POOL,
             pool_id: '7',
         }),
     ]);
-    assert.deepEqual(out.poolTokens, [{ pool_id: 7, token_address: 'bluechip1token' }]);
+    assert.deepEqual(out.poolTokens, [{ pool_id: 7, token_address: 'osmo1token' }]);
     assert.equal(out.pools.length, 1);
     assert.equal(out.pools[0].kind, 'commit');
     assert.equal(out.pools[0].address, POOL);
@@ -159,9 +170,9 @@ test('factory pool + token creation events register a pool with its token', () =
 
 test('pool-discovery events from a non-factory contract are ignored when a factory filter is set', () => {
     const out = parseTxEvents(CTX, [wasm({
-        _contract_address: 'bluechip1impostor',
+        _contract_address: 'osmo1impostor',
         action: 'pool_created_successfully',
-        pool_address: 'bluechip1fakepool',
+        pool_address: 'osmo1fakepool',
         pool_id: '666',
     })]);
     assert.equal(out.pools.length, 0);
@@ -172,7 +183,7 @@ test('creator claim events map both amount layouts onto amount_0/amount_1', () =
         wasm({
             _contract_address: POOL,
             action: 'claim_creator_fees',
-            creator: 'bluechip1creator',
+            creator: 'osmo1creator',
             amount_0: '850000000',
             amount_1: '1200000000',
             pool_contract: POOL,
@@ -180,7 +191,7 @@ test('creator claim events map both amount layouts onto amount_0/amount_1', () =
         wasm({
             _contract_address: POOL,
             action: 'claim_creator_excess',
-            creator: 'bluechip1creator',
+            creator: 'osmo1creator',
             bluechip_amount: '15000000000',
             token_amount: '30000000000',
             pool_contract: POOL,
@@ -192,12 +203,12 @@ test('creator claim events map both amount layouts onto amount_0/amount_1', () =
     assert.equal(out.claims[1].amount_1, '30000000000');
 });
 
-test('liquidity events normalize actor/amounts and keep the full attribute map', () => {
+test('deposit_liquidity normalizes actor/amounts and keeps the full attribute map', () => {
     const out = parseTxEvents(CTX, [wasm({
         _contract_address: POOL,
         action: 'deposit_liquidity',
         position_id: '3',
-        depositor: 'bluechip1lp',
+        depositor: 'osmo1lp',
         liquidity: '123456',
         actual_amount0: '1000000',
         actual_amount1: '2000000',
@@ -205,9 +216,64 @@ test('liquidity events normalize actor/amounts and keep the full attribute map',
     })]);
     assert.equal(out.liquidity.length, 1);
     const l = out.liquidity[0];
-    assert.equal(l.actor, 'bluechip1lp');
+    assert.equal(l.actor, 'osmo1lp');
     assert.equal(l.amount_0, '1000000');
+    assert.equal(l.amount_1, '2000000');
+    assert.equal(l.liquidity, '123456');
     assert.equal(JSON.parse(l.attrs_json).position_id, '3');
+});
+
+test('add_to_position uses the *_added / additional_liquidity attribute keys', () => {
+    const out = parseTxEvents(CTX, [wasm({
+        _contract_address: POOL,
+        action: 'add_to_position',
+        position_id: '3',
+        depositor: 'osmo1lp',
+        additional_liquidity: '55000',
+        actual_amount0_added: '400000',
+        actual_amount1_added: '800000',
+        pool_contract: POOL,
+    })]);
+    const l = out.liquidity[0];
+    assert.equal(l.actor, 'osmo1lp');
+    assert.equal(l.amount_0, '400000');
+    assert.equal(l.amount_1, '800000');
+    assert.equal(l.liquidity, '55000');
+});
+
+test('remove_partial_liquidity uses total_0/1 and liquidity_removed', () => {
+    const out = parseTxEvents(CTX, [wasm({
+        _contract_address: POOL,
+        action: 'remove_partial_liquidity',
+        position_id: '3',
+        withdrawer: 'osmo1lp',
+        liquidity_removed: '20000',
+        total_0: '250000',
+        total_1: '500000',
+        pool_contract: POOL,
+    })]);
+    const l = out.liquidity[0];
+    assert.equal(l.actor, 'osmo1lp');
+    assert.equal(l.amount_0, '250000');
+    assert.equal(l.amount_1, '500000');
+    assert.equal(l.liquidity, '20000');
+});
+
+test('collect_fees uses the collector actor and fees_0/1 amounts', () => {
+    const out = parseTxEvents(CTX, [wasm({
+        _contract_address: POOL,
+        action: 'collect_fees',
+        position_id: '3',
+        collector: 'osmo1lp',
+        fees_0: '1200',
+        fees_1: '3400',
+        pool_contract: POOL,
+    })]);
+    const l = out.liquidity[0];
+    assert.equal(l.actor, 'osmo1lp');
+    assert.equal(l.amount_0, '1200');
+    assert.equal(l.amount_1, '3400');
+    assert.equal(l.liquidity, null);
 });
 
 test('base64-encoded attributes (pre-0.37 Tendermint) are auto-decoded', () => {
@@ -217,7 +283,7 @@ test('base64-encoded attributes (pre-0.37 Tendermint) are auto-decoded', () => {
         attributes: [
             { key: b64('_contract_address'), value: b64(POOL) },
             { key: b64('action'), value: b64('swap') },
-            { key: b64('offer_asset'), value: b64('ubluechip') },
+            { key: b64('offer_asset'), value: b64('uosmo') },
             { key: b64('offer_amount'), value: b64('1000000') },
             { key: b64('return_amount'), value: b64('2000000') },
             { key: b64('pool_contract'), value: b64(POOL) },

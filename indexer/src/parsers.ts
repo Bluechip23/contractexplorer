@@ -1,30 +1,47 @@
 import { ClaimRow, CommitRow, LiquidityRow, PoolRow, TradeRow } from './db';
 import { decodeEventAttrs, RawEvent } from './rpc';
 
-// Pure event -> row mapping. Attribute keys mirror the contracts exactly:
+// Pure event -> row mapping. Attribute keys mirror the Osmosis BlueChip
+// contracts exactly (verified against bluechip-osmosis-contract):
 //
 //   commit (creator-pool/src/commit.rs + commit/*.rs):
-//     action=commit, phase, committer, pool_contract, block_height,
-//     block_time, total_commit_count + per-phase amount attributes.
+//     action=commit, phase, committer + per-phase amount attributes.
+//     The native side is uosmo; the contract emits only *_bluechip amount
+//     keys (a legacy name — the value is uosmo) plus the cumulative USD
+//     total `total_raised_after`. There is NO per-commit USD attribute, so
+//     amount_usd is derived downstream from the cumulative delta.
 //     phase is one of:
 //       funding             – pre-threshold commit
-//       active              – post-threshold commit (routed through the AMM)
+//                             (commit_amount_bluechip, total_raised_after,
+//                              total_bluechip_raised_after)
+//       active              – post-threshold commit routed through the AMM
+//                             (commit_amount_bluechip, swap_amount_bluechip,
+//                              tokens_received, spread_amount,
+//                              commission_amount, reserve{0,1}_after)
 //       threshold_crossing  – the commit that pushed past the threshold
-//       threshold_hit_exact – hit the threshold exactly (no excess swap)
+//                             (total_amount_bluechip, threshold_amount_bluechip,
+//                              swap_amount_bluechip, bluechip_excess_returned,
+//                              reserve{0,1}_after)
+//       threshold_hit_exact – hit the threshold exactly, no excess swap
+//                             (commit_amount_bluechip, total_raised_after)
 //   swap (pool-core/src/swap.rs):
 //     action=swap, sender, receiver, offer_asset, ask_asset, offer_amount,
 //     return_amount, spread_amount, commission_amount, effective_price,
-//     reserve0_after, reserve1_after, pool_contract, ...
+//     reserve0_after, reserve1_after, pool_contract
 //   liquidity (pool-core/src/liquidity/*.rs):
-//     action=deposit_liquidity | add_to_position | remove_liquidity |
-//     remove_partial_liquidity | collect_fees
+//     action=deposit_liquidity  (depositor, actual_amount0/1, liquidity) |
+//            add_to_position     (depositor, actual_amount{0,1}_added,
+//                                 additional_liquidity) |
+//            remove_liquidity | remove_partial_liquidity
+//                                (withdrawer, total_0/1, liquidity_removed) |
+//            collect_fees        (collector, fees_0/1)
 //   creator claims (creator-pool/src/liquidity_helpers.rs):
 //     action=claim_creator_fees (amount_0/amount_1) |
 //     claim_creator_excess (bluechip_amount/token_amount)
-//   factory pool discovery (factory/src/pool_creation_reply.rs):
-//     action=pool_created_successfully | standard_pool_created_successfully
-//     (pool_address, pool_id) and token_created_successfully
-//     (token_address, pool_id)
+//   factory pool discovery (factory/src/execute/pool_lifecycle):
+//     action=pool_created_successfully (pool_address, pool_id) and
+//     token_created_successfully (token_address, pool_id).
+//     Standard pools no longer exist — every pool is a creator commit pool.
 
 export interface ParsedTx {
     pools: PoolRow[];
@@ -40,7 +57,7 @@ export interface TxContext {
     txhash: string;
     height: number;
     ts: number;            // block time, unix seconds
-    nativeDenom: string;   // canonical bluechip denom, e.g. "ubluechip"
+    nativeDenom: string;   // canonical native denom, e.g. "uosmo"
     // When set, pool-discovery events are only accepted from this
     // contract address (the factory).
     factoryAddress: string | null;
@@ -58,17 +75,6 @@ function num(s: string | undefined): number | null {
     if (s === undefined) return null;
     const n = parseFloat(s);
     return Number.isFinite(n) ? n : null;
-}
-
-// Sum two micro-unit attribute strings; null when neither is present or
-// either is malformed.
-function sumMicro(a: string | undefined, b: string | undefined): string | null {
-    if (a === undefined && b === undefined) return null;
-    try {
-        return (BigInt(a ?? '0') + BigInt(b ?? '0')).toString();
-    } catch {
-        return null;
-    }
 }
 
 // bluechip-per-token price from micro amounts (decimals cancel: both
@@ -98,15 +104,16 @@ export function parseTxEvents(ctx: TxContext, events: RawEvent[]): ParsedTx {
 
         switch (action) {
             // ---- factory: pool discovery -------------------------------
-            case 'pool_created_successfully':
-            case 'standard_pool_created_successfully': {
+            case 'pool_created_successfully': {
                 if (ctx.factoryAddress && contract !== ctx.factoryAddress) break;
                 const address = a['pool_address'];
                 if (!address) break;
                 out.pools.push({
                     address,
                     pool_id: a['pool_id'] !== undefined ? parseInt(a['pool_id'], 10) : null,
-                    kind: action === 'pool_created_successfully' ? 'commit' : 'standard',
+                    // Every pool is a creator commit pool now (standard pools
+                    // were removed from the Osmosis contract).
+                    kind: 'commit',
                     created_height: ctx.height,
                     created_at: ctx.ts,
                 });
@@ -132,12 +139,17 @@ export function parseTxEvents(ctx: TxContext, events: RawEvent[]): ParsedTx {
                     pool,
                     committer: a['committer'],
                     phase,
-                    // funding/active/threshold_hit_exact report commit_amount_*;
-                    // the threshold_crossing (with excess) path reports
-                    // total_amount_bluechip plus a threshold/swap USD split.
+                    // funding/active/threshold_hit_exact report
+                    // commit_amount_bluechip; the threshold_crossing path
+                    // reports total_amount_bluechip. (uosmo amounts.)
                     amount_bluechip: a['commit_amount_bluechip'] ?? a['total_amount_bluechip'] ?? null,
-                    amount_usd: a['commit_amount_usd'] ?? sumMicro(a['threshold_amount_usd'], a['swap_amount_usd']),
-                    usd_raised_after: a['total_usd_raised_after'] ?? null,
+                    // The contract emits no per-commit USD attribute — only
+                    // the cumulative `total_raised_after`. amount_usd is left
+                    // null here and derived as the cumulative delta at insert
+                    // time (see db.insertCommit). commit_amount_usd is read
+                    // defensively in case a future contract emits it.
+                    amount_usd: a['commit_amount_usd'] ?? null,
+                    usd_raised_after: a['total_raised_after'] ?? null,
                     bluechip_raised_after: a['total_bluechip_raised_after'] ?? null,
                     tokens_received: a['tokens_received'] ?? null,
                 });
@@ -226,9 +238,13 @@ export function parseTxEvents(ctx: TxContext, events: RawEvent[]): ParsedTx {
                 if (!pool) break;
                 // Per-action amount/actor keys differ; normalize the
                 // common ones and keep the full map in attrs_json.
-                const amount0 = a['actual_amount0'] ?? a['total_0'] ?? a['fees_0'] ?? null;
-                const amount1 = a['actual_amount1'] ?? a['total_1'] ?? a['fees_1'] ?? null;
-                const liquidity = a['liquidity'] ?? a['liquidity_removed'] ?? null;
+                //   deposit_liquidity : actual_amount0/1, liquidity
+                //   add_to_position   : actual_amount0/1_added, additional_liquidity
+                //   remove(_partial)  : total_0/1, liquidity_removed
+                //   collect_fees      : fees_0/1 (no liquidity delta)
+                const amount0 = a['actual_amount0'] ?? a['actual_amount0_added'] ?? a['total_0'] ?? a['fees_0'] ?? null;
+                const amount1 = a['actual_amount1'] ?? a['actual_amount1_added'] ?? a['total_1'] ?? a['fees_1'] ?? null;
+                const liquidity = a['liquidity'] ?? a['additional_liquidity'] ?? a['liquidity_removed'] ?? null;
                 out.liquidity.push({
                     ...base,
                     pool,

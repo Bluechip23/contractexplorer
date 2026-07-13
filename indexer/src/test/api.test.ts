@@ -7,7 +7,7 @@ import {
     volumeSeries, windowStats,
 } from '../db';
 
-const POOL = 'bluechip1pool';
+const POOL = 'osmo1pool';
 const T0 = 1_700_002_800;   // bucket-aligned base time (472223 * 3600)
 
 function freshDb(): Db {
@@ -20,7 +20,7 @@ function freshDb(): Db {
 function trade(db: Db, i: number, ts: number, side: 'buy' | 'sell', price: number, bluechipMicro: string) {
     insertTrade(db, {
         txhash: `TX${i}`, event_index: 0, height: i, ts, pool: POOL,
-        trader: 'bluechip1trader', side, source: 'swap',
+        trader: 'osmo1trader', side, source: 'swap',
         offer_amount: side === 'buy' ? bluechipMicro : '999',
         return_amount: side === 'buy' ? '999' : bluechipMicro,
         commission: null, spread: null, price,
@@ -64,6 +64,26 @@ test('volumeSeries splits buy and sell pressure', () => {
     assert.equal(rows[0].sell_volume_bluechip, 500000);
 });
 
+test('insertCommit derives per-commit amount_usd from the cumulative raise delta', () => {
+    const db = freshDb();
+    // The Osmosis contract emits only the cumulative `total_raised_after`
+    // (-> usd_raised_after); amount_usd arrives null and is derived as the
+    // increase over the pool's previous cumulative.
+    const commit = (i: number, ts: number, cumulativeUsd: string) => insertCommit(db, {
+        txhash: `D${i}`, event_index: 0, height: i, ts, pool: POOL,
+        committer: 'osmo1fan', phase: 'funding',
+        amount_bluechip: '1', amount_usd: null,
+        usd_raised_after: cumulativeUsd, bluechip_raised_after: null, tokens_received: null,
+    });
+    commit(1, T0 + 5, '1000000');   // first: whole cumulative
+    commit(2, T0 + 6, '3500000');   // delta 2_500_000
+    commit(3, T0 + 7, '4000000');   // delta 500_000
+
+    const rows = commitSeries(db, { pool: POOL, bucket: 3600, from: T0, to: T0 + 3600 }) as any[];
+    assert.equal(rows[0].commits, 3);
+    assert.equal(rows[0].usd, 1000000 + 2500000 + 500000);   // == final cumulative 4_000_000
+});
+
 test('commitSeries counts commits, USD and unique wallets per bucket', () => {
     const db = freshDb();
     const commit = (i: number, ts: number, wallet: string, usd: string) => insertCommit(db, {
@@ -72,9 +92,9 @@ test('commitSeries counts commits, USD and unique wallets per bucket', () => {
         amount_bluechip: '1', amount_usd: usd,
         usd_raised_after: null, bluechip_raised_after: null, tokens_received: null,
     });
-    commit(1, T0 + 5, 'bluechip1a', '1000000');
-    commit(2, T0 + 6, 'bluechip1a', '2000000');
-    commit(3, T0 + 7, 'bluechip1b', '3000000');
+    commit(1, T0 + 5, 'osmo1a', '1000000');
+    commit(2, T0 + 6, 'osmo1a', '2000000');
+    commit(3, T0 + 7, 'osmo1b', '3000000');
 
     const rows = commitSeries(db, { pool: POOL, bucket: 3600, from: T0, to: T0 + 3600 }) as any[];
     assert.equal(rows[0].commits, 3);
@@ -99,13 +119,13 @@ test('creatorStatement merges commit fee shares (string math) with claims chrono
     const db = freshDb();
     insertCommit(db, {
         txhash: 'C1', event_index: 0, height: 1, ts: T0 + 10, pool: POOL,
-        committer: 'bluechip1fan', phase: 'funding',
+        committer: 'osmo1fan', phase: 'funding',
         amount_bluechip: '8000000', amount_usd: '1000000',     // $1.00 commit
         usd_raised_after: null, bluechip_raised_after: null, tokens_received: null,
     });
     insertClaim(db, {
         txhash: 'CL1', event_index: 1, height: 2, ts: T0 + 20, pool: POOL,
-        action: 'claim_creator_fees', creator: 'bluechip1creator',
+        action: 'claim_creator_fees', creator: 'osmo1creator',
         amount_0: '850000000', amount_1: '1200000000',
     });
 
@@ -124,7 +144,7 @@ test('windowStats compares the current window to the previous one', () => {
     trade(db, 2, now - 86400 - 1000, 'sell', 1.0, '2000000'); // previous window
     insertCommit(db, {
         txhash: 'C1', event_index: 0, height: 3, ts: now - 500, pool: POOL,
-        committer: 'bluechip1fan', phase: 'funding',
+        committer: 'osmo1fan', phase: 'funding',
         amount_bluechip: '1', amount_usd: '7000000',
         usd_raised_after: null, bluechip_raised_after: null, tokens_received: null,
     });
@@ -139,25 +159,25 @@ test('windowStats compares the current window to the previous one', () => {
 
 test('listCommitsByWallet returns cross-pool history newest first', () => {
     const db = freshDb();
-    upsertPool(db, { address: 'bluechip1pool2', pool_id: 2, kind: 'commit', created_height: 2, created_at: T0 });
+    upsertPool(db, { address: 'osmo1pool2', pool_id: 2, kind: 'commit', created_height: 2, created_at: T0 });
     const commit = (i: number, ts: number, pool: string) => insertCommit(db, {
         txhash: `W${i}`, event_index: 0, height: i, ts, pool,
-        committer: 'bluechip1fan', phase: 'funding',
+        committer: 'osmo1fan', phase: 'funding',
         amount_bluechip: '1000000', amount_usd: '125000',
         usd_raised_after: null, bluechip_raised_after: null, tokens_received: null,
     });
     commit(1, T0 + 10, POOL);
-    commit(2, T0 + 20, 'bluechip1pool2');
+    commit(2, T0 + 20, 'osmo1pool2');
     insertCommit(db, {
         txhash: 'OTHER', event_index: 0, height: 3, ts: T0 + 30, pool: POOL,
-        committer: 'bluechip1someoneelse', phase: 'funding',
+        committer: 'osmo1someoneelse', phase: 'funding',
         amount_bluechip: '1', amount_usd: '1',
         usd_raised_after: null, bluechip_raised_after: null, tokens_received: null,
     });
 
-    const rows = listCommitsByWallet(db, { wallet: 'bluechip1fan', limit: 10, beforeTs: null }) as any[];
+    const rows = listCommitsByWallet(db, { wallet: 'osmo1fan', limit: 10, beforeTs: null }) as any[];
     assert.equal(rows.length, 2);
     assert.equal(rows[0].txhash, 'W2');           // newest first
-    assert.equal(rows[0].pool, 'bluechip1pool2');
+    assert.equal(rows[0].pool, 'osmo1pool2');
     assert.equal(rows[1].txhash, 'W1');
 });
