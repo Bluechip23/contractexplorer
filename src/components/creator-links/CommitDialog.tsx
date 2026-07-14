@@ -1,12 +1,22 @@
 import React, { useEffect, useState } from 'react';
 import {
-    Dialog, DialogTitle, DialogContent, IconButton, Box, Chip, Stack, Typography,
+    Dialog, DialogTitle, DialogContent, IconButton, Box, Chip, Stack, Typography, ButtonBase,
 } from '@mui/material';
 import CloseIcon from '@mui/icons-material/Close';
 import { CommitPanel } from '../actions/PoolActionModals';
 import { sanitizeOnChainString } from '../../utils/security';
 import { formatMicroAmount, queryNativeUsdRate, safeBigInt } from '../../utils/contractQueries';
 import { Tier } from '../../utils/profilesApi';
+
+// micro-USD string -> plain decimal string (no thousands separators) suitable
+// for the commit panel's numeric USD input.
+function microUsdToInput(micro: string): string {
+    const m = safeBigInt(micro);
+    const s = m.toString().padStart(7, '0');
+    const int = s.slice(0, s.length - 6);
+    const frac = s.slice(s.length - 6).replace(/0+$/, '');
+    return frac ? `${int}.${frac}` : int;
+}
 
 export interface CommitDialogProps {
     open: boolean;
@@ -44,6 +54,8 @@ const CommitDialog: React.FC<CommitDialogProps> = ({
     open, onClose, poolAddress, tokenSymbol, thresholdReached = false, tiers,
 }) => {
     const [rateUsed, setRateUsed] = useState<string | null>(null);
+    // A tier the follower clicked; seeds the commit panel's USD field.
+    const [pickedUsd, setPickedUsd] = useState<string | undefined>(undefined);
 
     const hasTiers = !!tiers && tiers.length > 0;
 
@@ -72,20 +84,35 @@ const CommitDialog: React.FC<CommitDialogProps> = ({
                         <Stack spacing={0.5}>
                             {tiers!.map((t) => {
                                 const nativeMicro = rateUsed ? suggestNativeMicro(t.price_usd, rateUsed) : null;
+                                const selected = pickedUsd === microUsdToInput(t.price_usd);
                                 return (
-                                    <Stack key={t.id} direction="row" spacing={1} alignItems="center" flexWrap="wrap" useFlexGap>
-                                        <Chip size="small" label={sanitizeOnChainString(t.name, 40)} />
-                                        <Typography variant="body2" color="text.secondary">
-                                            ${formatMicroAmount(t.price_usd, 6, 2)}
-                                            {nativeMicro && ` ≈ ${formatMicroAmount(nativeMicro, 6, 2)} OSMO`}
-                                        </Typography>
-                                    </Stack>
+                                    <ButtonBase
+                                        key={t.id}
+                                        onClick={() => setPickedUsd(microUsdToInput(t.price_usd))}
+                                        sx={{
+                                            justifyContent: 'flex-start',
+                                            borderRadius: 1,
+                                            px: 1,
+                                            py: 0.5,
+                                            border: 1,
+                                            borderColor: selected ? 'primary.main' : 'divider',
+                                            bgcolor: selected ? 'action.selected' : 'transparent',
+                                        }}
+                                    >
+                                        <Stack direction="row" spacing={1} alignItems="center" flexWrap="wrap" useFlexGap>
+                                            <Chip size="small" label={sanitizeOnChainString(t.name, 40)} />
+                                            <Typography variant="body2" color="text.secondary">
+                                                ${formatMicroAmount(t.price_usd, 6, 2)}
+                                                {nativeMicro && ` ≈ ${formatMicroAmount(nativeMicro, 6, 2)} OSMO`}
+                                            </Typography>
+                                        </Stack>
+                                    </ButtonBase>
                                 );
                             })}
                         </Stack>
                         <Typography variant="caption" color="text.secondary" sx={{ display: 'block', mt: 0.5 }}>
-                            Commit at least a tier's price to unlock the links it gates. Amounts are suggestions —
-                            enter what you like below.
+                            Tap a tier to fill in that amount, then adjust below if you like. Commit at least a
+                            tier's price to unlock the links it gates.
                         </Typography>
                     </Box>
                 )}
@@ -93,6 +120,7 @@ const CommitDialog: React.FC<CommitDialogProps> = ({
                     poolAddress={poolAddress}
                     tokenSymbol={tokenSymbol}
                     thresholdReached={thresholdReached}
+                    initialUsd={pickedUsd}
                     onClose={onClose}
                 />
             </DialogContent>

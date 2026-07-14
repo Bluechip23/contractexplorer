@@ -38,6 +38,12 @@ import {
 } from '../../utils/security';
 import { deadlineNs } from '../../utils/datetime';
 import { ensureCw20Allowance, minAmountAfterSlippage, resolvePoolAssets } from '../../utils/poolActions';
+import { queryNativeUsdRate } from '../../utils/contractQueries';
+import {
+    microToPlainString,
+    nativeToUsdInput,
+    usdToNativeInput,
+} from '../../utils/bigintMath';
 
 
 interface BaseModalProps {
@@ -530,12 +536,17 @@ export const SellPanel: React.FC<BasePanelProps & { creatorTokenAddress?: string
 // post-threshold commits are swapped through the AMM (so they take an
 // optional max-slippage bound, like any swap). The subscription record
 // updates either way.
-export const CommitPanel: React.FC<BasePanelProps & { thresholdReached?: boolean }> = ({
-    onClose, poolAddress, tokenSymbol, thresholdReached = false,
+export const CommitPanel: React.FC<BasePanelProps & { thresholdReached?: boolean; initialUsd?: string }> = ({
+    onClose, poolAddress, tokenSymbol, thresholdReached = false, initialUsd,
 }) => {
     const { client, address, balance } = useWallet();
     const [stage, setStage] = useState<TxStage>('input');
+    // `amount` (native OSMO) stays the validated source of truth for the
+    // commit. `usdAmount` is a convenience driver: typing a dollar figure
+    // fills the OSMO amount from the live TWAP, and vice-versa.
     const [amount, setAmount] = useState('');
+    const [usdAmount, setUsdAmount] = useState('');
+    const [rateUsed, setRateUsed] = useState<string | null>(null);
     const [maxSpread, setMaxSpread] = useState('0.5');
     const [txHash, setTxHash] = useState('');
     const [errorMsg, setErrorMsg] = useState('');
@@ -544,9 +555,40 @@ export const CommitPanel: React.FC<BasePanelProps & { thresholdReached?: boolean
     const steps = ['Enter Amount', 'Confirm', 'Result'];
     const activeStep = stage === 'input' ? 0 : stage === 'confirm' || stage === 'executing' ? 1 : 2;
 
+    // Fetch the factory's live OSMO/USD TWAP once when the panel opens.
+    useEffect(() => {
+        let cancelled = false;
+        queryNativeUsdRate()
+            .then((r) => { if (!cancelled) setRateUsed(r?.rate_used ?? null); })
+            .catch(() => { if (!cancelled) setRateUsed(null); });
+        return () => { cancelled = true; };
+    }, []);
+
+    // Seed from a tier the follower picked (a USD figure). Applied once the
+    // rate is available so the OSMO amount fills in too.
+    useEffect(() => {
+        if (!initialUsd || !rateUsed) return;
+        setUsdAmount(initialUsd);
+        setAmount(usdToNativeInput(initialUsd, rateUsed));
+    }, [initialUsd, rateUsed]);
+
+    const onUsdChange = (v: string) => {
+        setUsdAmount(v);
+        setAmount(usdToNativeInput(v, rateUsed));
+    };
+    const onNativeChange = (v: string) => {
+        setAmount(v);
+        setUsdAmount(nativeToUsdInput(v, rateUsed));
+    };
+
+    const rateHint = rateUsed
+        ? `1 ${NATIVE_SYMBOL} ≈ $${microToPlainString(rateUsed)}`
+        : `Loading ${NATIVE_SYMBOL}/USD rate…`;
+
     const resetAndClose = () => {
         setStage('input');
         setAmount('');
+        setUsdAmount('');
         setTxHash('');
         setErrorMsg('');
         setInputError('');
@@ -675,11 +717,20 @@ export const CommitPanel: React.FC<BasePanelProps & { thresholdReached?: boolean
                             : `Subscribe to this pool's pre-threshold phase. Your ${NATIVE_SYMBOL} will be committed toward the funding threshold.`}
                     </Alert>
                     <TextField
-                        label={`Amount (${NATIVE_SYMBOL})`}
-                        value={amount}
-                        onChange={(e) => setAmount(e.target.value)}
+                        label="Amount (USD)"
+                        value={usdAmount}
+                        onChange={(e) => onUsdChange(e.target.value)}
                         type="number"
                         fullWidth
+                        helperText={rateHint}
+                    />
+                    <TextField
+                        label={`Amount (${NATIVE_SYMBOL})`}
+                        value={amount}
+                        onChange={(e) => onNativeChange(e.target.value)}
+                        type="number"
+                        fullWidth
+                        helperText={`This is what's committed. ${usdAmount ? `≈ $${nativeToUsdInput(amount, rateUsed) || '—'}` : `Type a dollar amount above and it fills in automatically.`}`}
                     />
                     {thresholdReached && (
                         <TextField

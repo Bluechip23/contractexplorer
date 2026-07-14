@@ -18,8 +18,8 @@ import {
     assertWalletOnExpectedChain,
     humanizeContractError,
 } from '../utils/security';
-import { formatMicroAmount } from '../utils/bigintMath';
-import { isFullyCommitted, queryFactoryConfig } from '../utils/contractQueries';
+import { formatMicroAmount, microToPlainString, nativeToUsdInput, usdToNativeInput } from '../utils/bigintMath';
+import { isFullyCommitted, queryFactoryConfig, queryNativeUsdRate } from '../utils/contractQueries';
 import { deadlineNs, timeAgo } from '../utils/datetime';
 import { ensureCw20Allowance, minAmountAfterSlippage, resolvePoolAssets } from '../utils/poolActions';
 
@@ -199,10 +199,24 @@ const CommitTab: React.FC<{ client: SigningCosmWasmClient | null; address: strin
     const [subTab, setSubTab] = useState(0);
     const [poolAddress, setPoolAddress] = useState('');
     const [amount, setAmount] = useState('');
+    const [usdAmount, setUsdAmount] = useState('');
+    const [rateUsed, setRateUsed] = useState<string | null>(null);
     const [maxSpread, setMaxSpread] = useState('0.005');
     const [deadline, setDeadline] = useState('20');
     const [status, setStatus] = useState('');
     const [txHash, setTxHash] = useState('');
+
+    // Live OSMO/USD TWAP so a dollar amount auto-fills the OSMO committed.
+    useEffect(() => {
+        let cancelled = false;
+        queryNativeUsdRate()
+            .then((r) => { if (!cancelled) setRateUsed(r?.rate_used ?? null); })
+            .catch(() => { if (!cancelled) setRateUsed(null); });
+        return () => { cancelled = true; };
+    }, []);
+
+    const onUsdChange = (v: string) => { setUsdAmount(v); setAmount(usdToNativeInput(v, rateUsed)); };
+    const onNativeChange = (v: string) => { setAmount(v); setUsdAmount(nativeToUsdInput(v, rateUsed)); };
 
     const handleSubscribe = async () => {
         if (!client || !address || !poolAddress) { setStatus('Connect wallet and enter pool address'); return; }
@@ -256,7 +270,20 @@ const CommitTab: React.FC<{ client: SigningCosmWasmClient | null; address: strin
                 <Box sx={{ display: 'flex', flexDirection: 'column', gap: 2 }}>
                     <OracleStatusBanner />
                     <PoolPickerField value={poolAddress} onChange={setPoolAddress} label="Pool" />
-                    <TextField label={`Amount (${NATIVE_SYMBOL})`} value={amount} onChange={(e) => setAmount(e.target.value)} type="number" />
+                    <TextField
+                        label="Amount (USD)"
+                        value={usdAmount}
+                        onChange={(e) => onUsdChange(e.target.value)}
+                        type="number"
+                        helperText={rateUsed ? `1 ${NATIVE_SYMBOL} ≈ $${microToPlainString(rateUsed)}` : `Loading ${NATIVE_SYMBOL}/USD rate…`}
+                    />
+                    <TextField
+                        label={`Amount (${NATIVE_SYMBOL})`}
+                        value={amount}
+                        onChange={(e) => onNativeChange(e.target.value)}
+                        type="number"
+                        helperText={`This is what's committed.${usdAmount ? ` ≈ $${nativeToUsdInput(amount, rateUsed) || '—'}` : ' Type a dollar amount above to auto-fill.'}`}
+                    />
                     <TextField label="Max Spread" value={maxSpread} onChange={(e) => setMaxSpread(e.target.value)} helperText="e.g. 0.005 for 0.5%" />
                     <TextField label="Deadline (minutes)" value={deadline} onChange={(e) => setDeadline(e.target.value)} type="number" />
                     <Button variant="contained" onClick={handleSubscribe} disabled={!client}>Commit</Button>

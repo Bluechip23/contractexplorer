@@ -59,6 +59,54 @@ export function formatMicroAmount(
     return `${sign}${wholeFormatted}.${shownFrac}`;
 }
 
+// Format a micro-denominated integer as a PLAIN decimal string (no thousands
+// separators, trailing zeros trimmed) — suitable for writing into a numeric
+// <input>. `formatMicroAmount` is for display; this is for round-tripping
+// through form fields.
+export function microToPlainString(
+    amount: string | number | bigint | null | undefined,
+    decimals: number = 6,
+): string {
+    const n = safeBigInt(amount);
+    const negative = n < 0n;
+    const s = (negative ? -n : n).toString().padStart(decimals + 1, '0');
+    const int = s.slice(0, s.length - decimals);
+    const frac = s.slice(s.length - decimals).replace(/0+$/, '');
+    return `${negative ? '-' : ''}${frac ? `${int}.${frac}` : int}`;
+}
+
+// USD <-> native (OSMO) conversion for commit inputs, using the factory's
+// live TWAP `rate_used` (micro-USD per 1.0 native token; 1_000_000 = $1.00
+// per OSMO): native_micro = usd_micro * 1e6 / rate_used, and the inverse.
+// Inputs/outputs are human decimal strings; returns '' when the source
+// amount is not a valid positive number or the rate is unusable, so the
+// paired field clears rather than showing garbage. BigInt only — no floats.
+function decimalToMicro(value: string, decimals: number): bigint | null {
+    const trimmed = value.trim();
+    if (!/^\d+(\.\d+)?$/.test(trimmed)) return null;
+    const [intPart, fracRaw = ''] = trimmed.split('.');
+    if (fracRaw.length > decimals) return null;
+    const frac = (fracRaw + '0'.repeat(decimals)).slice(0, decimals);
+    const micro = safeBigInt(`${intPart}${frac}`);
+    return micro > 0n ? micro : null;
+}
+
+export function usdToNativeInput(usd: string, rateUsed: string | null, decimals: number = 6): string {
+    if (!rateUsed) return '';
+    const usdMicro = decimalToMicro(usd, decimals);
+    const rate = safeBigInt(rateUsed);
+    if (usdMicro === null || rate <= 0n) return '';
+    return microToPlainString((usdMicro * 1_000_000n) / rate, decimals);
+}
+
+export function nativeToUsdInput(native: string, rateUsed: string | null, decimals: number = 6): string {
+    if (!rateUsed) return '';
+    const nativeMicro = decimalToMicro(native, decimals);
+    const rate = safeBigInt(rateUsed);
+    if (nativeMicro === null || rate <= 0n) return '';
+    return microToPlainString((nativeMicro * rate) / 1_000_000n, decimals);
+}
+
 // Convert a micro-denominated integer string to a JS number for UI math that
 // doesn't need integer precision (percentages, chart positions). Returns 0
 // for malformed input. Callers must accept that values > 2^53 lose precision.
